@@ -22,9 +22,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: center; /* 垂直居中 */
             color: #fff;
-            padding: 40px 20px; /* 增加上下内边距 */
+            padding: 40px 20px;
         }
 
         @keyframes gradientBG {
@@ -42,9 +42,9 @@
         }
 
         h1 {
-            font-size: 2.5rem;
+            font-size: 3rem; /*稍微调大一点*/
             font-weight: 800;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             margin-bottom: 0.5rem;
             text-transform: uppercase;
             background: linear-gradient(to right, #fff, #a5a5a5);
@@ -54,80 +54,79 @@
 
         p.subtitle {
             color: #a5a5a5;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: 300;
+            letter-spacing: 2px; /* 增加字间距让标语更有质感 */
         }
 
-        /* 布局容器：升级为Flex布局以完美支持奇数个卡片 */
+        /* 修复的核心：容器布局 */
         .card-container {
             display: flex;
-            flex-wrap: wrap; /* 允许换行 */
-            justify-content: center; /* 最后一行居中对齐 */
-            gap: 2rem;
-            max-width: 1000px; /* 稍微加宽 */
+            flex-wrap: wrap;      /* 允许换行 */
+            justify-content: center; /* 核心：让所有卡片整体居中 */
+            gap: 40px;            /* 卡片之间的间距 */
+            max-width: 1200px;    /* 限制最大宽度，确保PC端一行最多3个 */
             width: 100%;
+            margin-bottom: 3rem;  /* 确保页脚不会贴着卡片 */
         }
 
-        /* 游戏卡片样式 */
+        /* 修复的核心：卡片固定尺寸 */
         .game-card {
+            width: 280px;   /* 固定宽度，不再自动拉伸，防止出现巨型卡片 */
+            height: 320px;  /* 固定高度，保证整齐划一 */
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 20px;
-            padding: 2rem;
+            padding: 2rem 1.5rem;
             text-decoration: none;
             color: white;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            
+            /* 内容布局 */
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center; /* 内容垂直居中 */
             text-align: center;
             position: relative;
-            overflow: hidden;
-            
-            /* Flex控制卡片尺寸 */
-            flex: 1 1 300px; /* 基础宽度300px，允许伸缩 */
-            max-width: 350px; /* 限制最大宽度，防止在宽屏上太长 */
         }
 
         /* 卡片图标 */
         .icon {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
+            font-size: 4rem; /* 图标大一点 */
+            margin-bottom: 1.5rem;
             transition: transform 0.4s ease;
         }
 
         .game-title {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.8rem;
         }
 
         .game-desc {
             font-size: 0.9rem;
             color: #ccc;
-            line-height: 1.4;
+            line-height: 1.5;
         }
 
-        /* 炫酷的 Hover 效果 */
+        /* Hover 动效 */
         .game-card:hover {
-            transform: translateY(-10px) scale(1.02);
+            transform: translateY(-10px) scale(1.03);
             background: rgba(255, 255, 255, 0.1);
             border-color: rgba(255, 255, 255, 0.3);
             z-index: 10;
         }
-
         .game-card:hover .icon {
             transform: scale(1.2) rotate(5deg);
         }
 
-        /* 专属霓虹光晕颜色 */
+        /* 霓虹光效 */
         .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }
         .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }
         .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }
         .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }
-        
-        /* 新增：宝石棋专属光晕 (宝石紫/蓝) */
         .game-card.mancala:hover { box-shadow: 0 15px 30px rgba(157, 0, 255, 0.4); }
 
         /* 入场动画 */
@@ -135,12 +134,11 @@
             opacity: 0;
             animation: fadeInUp 0.8s ease-out forwards;
         }
-        /* 依次延迟 */
         .game-card:nth-child(1) { animation-delay: 0.1s; }
         .game-card:nth-child(2) { animation-delay: 0.2s; }
         .game-card:nth-child(3) { animation-delay: 0.3s; }
         .game-card:nth-child(4) { animation-delay: 0.4s; }
-        .game-card:nth-child(5) { animation-delay: 0.5s; } /* 新增 */
+        .game-card:nth-child(5) { animation-delay: 0.5s; }
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -151,11 +149,27 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 响应式微调 */
-        @media (max-width: 600px) {
-            h1 { font-size: 2rem; }
-            .card-container { gap: 1.5rem; }
-            .game-card { max-width: 100%; } /* 手机上占满宽度 */
+        /* 页脚样式 */
+        footer {
+            width: 100%;
+            text-align: center;
+            color: rgba(255,255,255,0.3);
+            font-size: 0.9rem;
+            margin-top: auto; /* 确保在内容少时也尽量靠下 */
+        }
+
+        /* 响应式：手机端适配 */
+        @media (max-width: 768px) {
+            h1 { font-size: 2.2rem; }
+            .card-container { 
+                gap: 20px; 
+            }
+            .game-card { 
+                width: 100%; /* 手机端占满宽度 */
+                max-width: 340px; /* 限制一下最大宽度 */
+                height: auto; /* 高度自适应 */
+                padding: 2rem;
+            }
         }
     </style>
 </head>
@@ -190,12 +204,12 @@
 
         <!-- 双陆棋 -->
         <a href="./backgammon/" class="game-card backgammon">
-            <div class="icon"♟️</div>
+            <div class="icon">♟️</div>
             <div class="game-title">双陆棋</div>
             <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
         </a>
 
-        <!-- 新增：宝石棋 -->
+        <!-- 宝石棋 -->
         <a href="./mancala/" class="game-card mancala">
             <div class="icon">💎</div>
             <div class="game-title">宝石棋</div>
@@ -203,7 +217,7 @@
         </a>
     </div>
 
-    <footer style="margin-top: 3rem; color: rgba(255,255,255,0.3); font-size: 0.8rem;">
+    <footer>
         © 2025 by ArthurZhu
     </footer>
 
