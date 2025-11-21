@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>绝境骰子 (by Arthur)</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #252526;
+            --text-color: #e0e0e0;
+            --accent: #00e5ff;
+            --accent-glow: rgba(0, 229, 255, 0.4);
+            --danger: #ff5252;
+            --armor: #69f0ae;
+            --energy: #ffd740;
+            --modifier: #b388ff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            /* 修复手机浏览器高度遮挡问题 */
+            height: 100vh;
+            height: 100dvh; 
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* 顶部标题 */
+        .header-bar {
+            flex: 0 0 auto;
+            background: rgba(20, 20, 20, 0.95);
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            z-index: 10;
+        }
+        .game-title { font-weight: 800; color: #fff; font-size: 1.1em; letter-spacing: 0.5px; }
+        .game-title span { color: var(--accent); font-size: 0.8em; font-weight: normal; margin-left: 5px; }
+        .btn-rules { background: transparent; border: 1px solid #555; color: #aaa; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-size: 0.75em; }
+
+        /* 状态栏 */
+        .hud {
+            flex: 0 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 10px;
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 0.9em;
+            gap: 5px;
+        }
+        .stat-item { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .stat-label { font-size: 0.7em; color: #888; margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+        .stat-val { font-weight: 700; font-size: 1.1em; }
+
+        /* --- 核心修复区域 --- */
+        #game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            /* 修复BUG：改为 flex-start，防止内容溢出时顶部被裁切 */
+            justify-content: flex-start; 
+            padding: 15px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+            -webkit-overflow-scrolling: touch; /* 增加iOS滚动流畅度 */
+        }
+
+        /* 环境词缀 */
+        .modifier-bar {
+            flex: 0 0 auto; /* 防止被压缩 */
+            background: rgba(179, 136, 255, 0.1);
+            border: 1px solid var(--modifier);
+            color: var(--modifier);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            text-align: center;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            animation: fadeIn 0.5s;
+        }
+
+        /* 敌人区域 */
+        .enemy-area {
+            flex: 0 0 auto; /* 防止被压缩 */
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: linear-gradient(145deg, #2a2a2d, #1f1f22);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+            min-height: 80px;
+        }
+        .enemy-avatar { font-size: 3.5em; margin-right: 15px; animation: float 3s ease-in-out infinite; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5)); }
+        .enemy-info { flex: 1; }
+        .enemy-hp-bar { height: 8px; background: #111; margin-top: 8px; border-radius: 4px; overflow: hidden; }
+        .enemy-hp-fill { height: 100%; background: linear-gradient(90deg, #ff5252, #d50000); width: 100%; transition: width 0.3s ease-out; }
+        .enemy-intent { margin-top: 8px; font-size: 0.9em; color: #ff8a80; display: flex; align-items: center; gap: 6px; font-weight: 500;}
+
+        /* 装备构筑区 */
+        .board-area {
+            flex: 0 0 auto; /* 内容撑开 */
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 2px;
+            padding-bottom: 10px; /* 底部增加一点留白 */
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .card:hover { transform: translateY(-2px); border-color: #555; }
+        .card.active-target { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); background: #2d2d30; }
+        
+        .card-header { font-size: 0.85em; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;}
+        .card-lvl { font-size: 0.75em; color: var(--energy); background: rgba(255, 215, 64, 0.15); padding: 1px 5px; border-radius: 4px; }
+        .card-desc { font-size: 0.7em; color: #999; margin-bottom: 8px; min-height: 2.4em; line-height: 1.3;}
+        
+        .card-slots {
+            background: rgba(0,0,0,0.4);
+            border-radius: 6px;
+            padding: 5px;
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-content: flex-start;
+            min-height: 42px;
+            border: 1px dashed #444;
+        }
+        .card-slots:empty::after {
+            content: "点击置入";
+            display: block; width: 100%; text-align: center; margin-top: 10px;
+            font-size: 0.7em; color: #555;
+        }
+
+        /* 骰子 */
+        .die {
+            width: 46px; height: 46px;
+            background: linear-gradient(145deg, #fff, #dcdcdc);
+            border-radius: 8px;
+            box-shadow: 2px 4px 6px rgba(0,0,0,0.4), inset 1px 1px 0px #fff;
+            position: relative;
+            cursor: pointer;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 6px;
+            box-sizing: border-box;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .card-slots .die { 
+            width: 30px; height: 30px; padding: 3px; pointer-events: none; 
+            border-radius: 5px; box-shadow: 1px 2px 3px rgba(0,0,0,0.5);
+        }
+        .card-slots .die .dot { width: 5px; height: 5px; }
+
+        .dot {
+            width: 8px; height: 8px;
+            background: radial-gradient(circle at 30% 30%, #444, #000);
+            border-radius: 50%;
+            align-self: center; justify-self: center;
+            box-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        }
+        
+        /* 点数定位 */
+        .die[data-val="1"] > :nth-child(1) { grid-area: 2 / 2; background: radial-gradient(circle at 30% 30%, #ff5252, #b71c1c); }
+        .die[data-val="2"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="2"] > :nth-child(2) { grid-area: 3 / 3; }
+        .die[data-val="3"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="3"] > :nth-child(2) { grid-area: 2 / 2; } .die[data-val="3"] > :nth-child(3) { grid-area: 3 / 3; }
+        .die[data-val="4"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="4"] > :nth-child(2) { grid-area: 1 / 3; } .die[data-val="4"] > :nth-child(3) { grid-area: 3 / 1; } .die[data-val="4"] > :nth-child(4) { grid-area: 3 / 3; }
+        .die[data-val="5"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="5"] > :nth-child(2) { grid-area: 1 / 3; } .die[data-val="5"] > :nth-child(3) { grid-area: 2 / 2; } .die[data-val="5"] > :nth-child(4) { grid-area: 3 / 1; } .die[data-val="5"] > :nth-child(5) { grid-area: 3 / 3; }
+        .die[data-val="6"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="6"] > :nth-child(2) { grid-area: 1 / 3; } .die[data-val="6"] > :nth-child(3) { grid-area: 2 / 1; } .die[data-val="6"] > :nth-child(4) { grid-area: 2 / 3; } .die[data-val="6"] > :nth-child(5) { grid-area: 3 / 1; } .die[data-val="6"] > :nth-child(6) { grid-area: 3 / 3; }
+
+        .die.selected { 
+            transform: translateY(-8px) scale(1.1); 
+            box-shadow: 0 0 15px var(--accent-glow), 0 0 5px var(--accent);
+            border: 1px solid var(--accent);
+            z-index: 5;
+        }
+
+        .bonus-text {
+            position: absolute; top: -8px; right: -6px;
+            font-size: 0.7em; font-weight: 900; color: var(--energy);
+            text-shadow: 1px 1px 0 #000;
+            animation: pop 0.3s; z-index: 6; pointer-events: none;
+        }
+
+        /* 底部 */
+        .control-area {
+            flex: 0 0 auto;
+            background: #1e1e1e;
+            padding: 15px 10px;
+            border-top: 1px solid #333;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.2);
+        }
+        .hand-area {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            min-height: 55px;
+            margin-bottom: 12px;
+        }
+        .btn-group { display: flex; gap: 10px; }
+        .btn {
+            flex: 1; padding: 14px; border: none; border-radius: 8px;
+            font-weight: 700; cursor: pointer; color: #fff; font-size: 0.95em;
+            display: flex; justify-content: center; align-items: center; gap: 6px;
+            letter-spacing: 1px;
+        }
+        .btn-reroll { background: #333; color: var(--energy); border: 1px solid #444; }
+        .btn-reroll:active { transform: translateY(2px); }
+        .btn-reroll:disabled { opacity: 0.4; }
+        .btn-end { background: linear-gradient(135deg, #d32f2f, #b71c1c); box-shadow: 0 3px 0 #7f0000; }
+        .btn-end:active { transform: translateY(3px); box-shadow: none; }
+
+        /* 模态框 */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92); z-index: 100;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal.active { display: flex; animation: fadeIn 0.3s; }
+        .modal-box { 
+            background: #222; padding: 25px; border-radius: 12px; 
+            max-width: 85%; width: 320px; border: 1px solid #444; color: #eee;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+        .reward-option { 
+            background: #2e2e31; padding: 15px; margin: 10px 0; 
+            border: 1px solid #444; cursor: pointer; border-radius: 8px;
+            text-align: center; transition: 0.2s;
+        }
+        .reward-option:hover { border-color: var(--accent); background: #38383b; }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        @keyframes shake { 0% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } 100% { transform: translateX(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .shake { animation: shake 0.4s; }
+        .fade-in { animation: pop 0.3s ease-out backwards; }
+    </style>
+</head>
+<body>
+
+<div class="header-bar">
+    <div class="game-title">绝境骰子 <span>by Arthur</span></div>
+    <button class="btn-rules" onclick="toggleRules()">📜 规则</button>
+</div>
+
+<div class="hud">
+    <div class="stat-item">
+        <div class="stat-label">❤️ 生命</div>
+        <div class="stat-val" style="color:var(--danger)"><span id="hp-val">30</span>/<span id="max-hp-val">30</span></div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-label">🛡️ 护甲</div>
+        <div class="stat-val" style="color:var(--armor)" id="armor-val">0</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-label">🚩 层数</div>
+        <div class="stat-val" style="color:var(--accent)" id="floor-val">1</div>
+    </div>
+</div>
+
+<div id="game-container">
+    <!-- 环境特效 -->
+    <div id="modifier-area" class="modifier-bar" style="display:none;"></div>
+
+    <!-- 敌人 -->
+    <div class="enemy-area" id="enemy-area">
+        <div class="enemy-avatar" id="enemy-avatar">👾</div>
+        <div class="enemy-info">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                <strong id="enemy-name" style="font-size:1.1em;">史莱姆</strong>
+                <span style="font-size:0.9em; color:#888;" id="enemy-hp-text">20/20</span>
+            </div>
+            <div class="enemy-hp-bar"><div class="enemy-hp-fill" id="enemy-hp-fill" style="width: 100%;"></div></div>
+            <div class="enemy-intent" id="enemy-intent"></div>
+        </div>
+    </div>
+
+    <!-- 装备区 -->
+    <div class="board-area" id="board-area"></div>
+    
+    <!-- 战斗日志 -->
+    <div id="log-area" style="text-align:center; font-size:0.75em; color:#666; height:20px; margin-top:10px; flex: 0 0 auto;"></div>
+</div>
+
+<div class="control-area">
+    <div class="hand-area" id="hand-area"></div>
+    <div class="btn-group">
+        <button class="btn btn-reroll" id="btn-reroll" onclick="game.reroll()">
+            ♻️ 重掷 <span id="reroll-count" style="background:#444; padding:0 6px; border-radius:4px; font-size:0.8em;">2</span>
+        </button>
+        <button class="btn btn-end" onclick="game.endTurn()">结束回合</button>
+    </div>
+</div>
+
+<!-- 规则弹窗 -->
+<div class="modal" id="rules-modal">
+    <div class="modal-box">
+        <h2 style="color:var(--accent); margin-top:0; text-align:center;">冒险指南</h2>
+        <div style="font-size: 0.9em; line-height: 1.6; color:#ccc;">
+            <p>1. <strong>投掷与构筑</strong>：点击下方骰子，再点击上方装备放入。</p>
+            <p>2. <strong>环境异变</strong>：每一层有不同的环境规则，请注意观察。</p>
+            <p>3. <strong>迷雾机制</strong>：迷雾状态下，敌人的攻击会有 <strong>-2 到 +3</strong> 的浮动，请做好最坏打算！</p>
+            <p>4. <strong>胜利条件</strong>：击败第5层BOSS。</p>
+        </div>
+        <button class="btn btn-reroll" style="margin-top:20px; width:100%; color:#fff;" onclick="toggleRules()">关闭</button>
+    </div>
+</div>
+
+<!-- 结算弹窗 -->
+<div class="modal" id="reward-modal">
+    <div class="modal-box">
+        <h2 id="reward-title" style="text-align:center; color:#fff;">胜利!</h2>
+        <p id="reward-msg" style="text-align:center; color:#888; margin-bottom:15px;">选择你的战利品</p>
+        <div id="reward-options"></div>
+    </div>
+</div>
+
+<script>
+/**
+ * 环境词缀系统
+ */
+const MODIFIERS = [
+    { id: 'normal', name: '平静', desc: '无特殊效果', color: '#888' },
+    { id: 'fog', name: '迷雾', desc: '⚠️ 攻击数值有波动 (-2 ~ +3)', color: '#ccc' },
+    { id: 'rage', name: '狂暴', desc: '🔥 敌我双方造成伤害 +2', color: '#ff5252' },
+    { id: 'regen', name: '生机', desc: '🌿 玩家每回合回复 2 HP', color: '#69f0ae' },
+    { id: 'curse', name: '厄运', desc: '📉 骰子最大点数为 5', color: '#b388ff' },
+    { id: 'bless', name: '幸运', desc: '✨ 骰子最小点数为 2', color: '#ffd740' }
+];
+
+const ITEMS_DB = [
+    { id: 'sword', icon: '🗡️', name: '锈铁剑', desc: '造成 [点数+等级] 伤害', condition: (v)=>true, 
+      effect: (v, g, lvl) => { 
+          let bonus = (g.currentMod.id === 'rage') ? 2 : 0;
+          let val = v + lvl + bonus; 
+          g.damageEnemy(val); 
+          return `-${val}`; 
+      } 
+    },
+    { id: 'shield', icon: '🛡️', name: '圆盾', desc: '获得 [点数+等级] 护甲', condition: (v)=>true, 
+      effect: (v, g, lvl) => { 
+          let val = v + lvl; 
+          g.addArmor(val); 
+          return `+${val}`; 
+      } 
+    },
+    { id: 'dagger', icon: '🔪', name: '匕首', desc: '最大3点: [2倍+等级] 伤害', condition: (v) => v <= 3, 
+      effect: (v, g, lvl) => { 
+          let bonus = (g.currentMod.id === 'rage') ? 2 : 0;
+          let val = (v * 2) + lvl + bonus; 
+          g.damageEnemy(val); 
+          return "CRIT!"; 
+      } 
+    },
+    { id: 'wand', icon: '🔮', name: '法杖', desc: '偶数: [6+等级] 伤害', condition: (v) => v % 2 === 0, 
+      effect: (v, g, lvl) => { 
+          let bonus = (g.currentMod.id === 'rage') ? 2 : 0;
+          let val = 6 + lvl + bonus; 
+          g.damageEnemy(val); 
+          return "ZAP!"; 
+      } 
+    },
+    { id: 'hammer', icon: '🔨', name: '重锤', desc: '点数6: [10+等级] 伤害', condition: (v) => v === 6, 
+      effect: (v, g, lvl) => { 
+          let bonus = (g.currentMod.id === 'rage') ? 2 : 0;
+          let val = 10 + lvl + bonus; 
+          g.damageEnemy(val); 
+          return "SMASH!"; 
+      } 
+    },
+    { id: 'heal', icon: '🧪', name: '药瓶', desc: '最小值4: 回复 [3+等级] HP', condition: (v) => v >= 4, 
+      effect: (v, g, lvl) => { 
+          let val = 3 + lvl; 
+          g.healPlayer(val); 
+          return `+${val}`; 
+      } 
+    },
+    { id: 'battery', icon: '🔋', name: '充能器', desc: '获得 [点数] 次重掷', condition: (v) => true, 
+      effect: (v, g, lvl) => { g.addReroll(v); return `+${v} ♻️`; } 
+    }
+];
+
+const ENEMIES_DB = [
+    { name: '史莱姆', hp: 25, dmg: 5, emoji: '🟢' },
+    { name: '腐化树人', hp: 45, dmg: 7, emoji: '🌳' },
+    { name: '暗影刺客', hp: 65, dmg: 9, emoji: '🗡️' },
+    { name: '死灵巫妖', hp: 90, dmg: 12, emoji: '💀' },
+    { name: '深渊魔龙', hp: 120, dmg: 15, emoji: '🐉' }
+];
+
+function getDieHTML(value) {
+    let dots = '';
+    for(let i=0; i<value; i++) dots += '<div class="dot"></div>';
+    return `<div class="die fade-in" data-val="${value}">${dots}</div>`;
+}
+
+class Game {
+    constructor() {
+        this.player = { hp: 30, maxHp: 30, armor: 0, rerolls: 2, diceCount: 3 };
+        this.inventory = []; 
+        this.handDice = []; 
+        this.selectedHandIndex = null;
+        this.floor = 1;
+        this.currentMod = MODIFIERS[0];
+        
+        this.addItem('sword');
+        this.addItem('shield');
+        
+        this.initFloor();
+    }
+
+    initFloor() {
+        if (this.floor > ENEMIES_DB.length) {
+            this.showRewardModal("通关！", "你征服了绝境骰子！", true);
+            return;
+        }
+
+        if (this.floor === 1) this.currentMod = MODIFIERS[0];
+        else this.currentMod = MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
+
+        const eData = ENEMIES_DB[this.floor - 1];
+        this.enemy = { ...eData, maxHp: eData.hp, currentHp: eData.hp };
+        
+        this.startTurn();
+    }
+
+    startTurn() {
+        this.turnState = 'player';
+        this.player.armor = 0;
+        this.player.rerolls = 2; 
+        this.handDice = [];
+        this.inventory.forEach(item => item.storedDice = []); 
+        
+        if (this.currentMod.id === 'regen') {
+            this.healPlayer(2);
+        }
+
+        for(let i=0; i<this.player.diceCount; i++) {
+            this.handDice.push({ value: this.rollD6(), id: Math.random() });
+        }
+        
+        this.selectedHandIndex = null;
+        this.log(`第 ${this.floor} 层开始 - ${this.currentMod.name}`);
+        this.updateUI();
+    }
+
+    rollD6() {
+        let val = Math.floor(Math.random() * 6) + 1;
+        if (this.currentMod.id === 'curse') val = Math.min(val, 5);
+        if (this.currentMod.id === 'bless') val = Math.max(val, 2);
+        return val;
+    }
+
+    selectHandDie(index) {
+        if (this.turnState !== 'player') return;
+        this.selectedHandIndex = (this.selectedHandIndex === index) ? null : index;
+        this.updateUI();
+    }
+
+    useItem(itemIndex) {
+        if (this.turnState !== 'player' || this.selectedHandIndex === null) return;
+        
+        const die = this.handDice[this.selectedHandIndex];
+        const item = this.inventory[itemIndex];
+        const dbItem = ITEMS_DB.find(i => i.id === item.id);
+
+        if (!dbItem.condition(die.value)) {
+            this.log("❌ 不满足点数条件");
+            this.shake('board-area');
+            return;
+        }
+
+        const bonusText = dbItem.effect(die.value, this, item.level);
+        
+        item.storedDice.push({ value: die.value, bonus: bonusText });
+        this.handDice.splice(this.selectedHandIndex, 1);
+        this.selectedHandIndex = null;
+
+        this.checkWin();
+        this.updateUI();
+    }
+
+    reroll() {
+        if (this.player.rerolls > 0 && this.handDice.length > 0) {
+            this.player.rerolls--;
+            this.handDice.forEach(d => d.value = this.rollD6());
+            this.log("重掷完成");
+            this.selectedHandIndex = null;
+            this.updateUI();
+        }
+    }
+
+    damageEnemy(amt) {
+        this.enemy.currentHp = Math.max(0, this.enemy.currentHp - amt);
+        this.shake('enemy-avatar');
+    }
+
+    addArmor(amt) { this.player.armor += amt; }
+    healPlayer(amt) { this.player.hp = Math.min(this.player.hp + amt, this.player.maxHp); }
+    addReroll(amt) { this.player.rerolls += amt; }
+
+    endTurn() {
+        if (this.turnState !== 'player') return;
+        this.turnState = 'enemy';
+        this.selectedHandIndex = null;
+        this.updateUI();
+
+        setTimeout(() => {
+            if (this.enemy.currentHp > 0) {
+                let finalDmg = this.enemy.dmg; 
+                
+                if (this.currentMod.id === 'rage') finalDmg += 2;
+
+                if (this.currentMod.id === 'fog') {
+                    let variance = Math.floor(Math.random() * 6) - 2; 
+                    finalDmg += variance;
+                    if (finalDmg < 0) finalDmg = 0;
+                    this.log(`迷雾中窜出攻击: ${finalDmg} 点!`);
+                }
+                
+                let damageBlocked = Math.min(this.player.armor, finalDmg);
+                let actualDmg = Math.max(0, finalDmg - this.player.armor);
+                
+                this.player.armor = Math.max(0, this.player.armor - finalDmg);
+                
+                if (actualDmg > 0) {
+                    this.player.hp -= actualDmg;
+                    this.shake('game-container');
+                    if (this.currentMod.id !== 'fog') {
+                        this.log(`💔 受到 ${actualDmg} 点伤害 (护甲抵消 ${damageBlocked})`);
+                    }
+                } else {
+                    this.log(`🛡️ 完美防御！(抵消 ${damageBlocked})`);
+                }
+
+                if (this.player.hp <= 0) {
+                    this.player.hp = 0;
+                    this.showRewardModal("YOU DIED", `止步于第 ${this.floor} 层`, true);
+                } else {
+                    this.startTurn();
+                }
+            }
+            this.updateUI();
+        }, 800);
+    }
+
+    checkWin() {
+        if (this.enemy.currentHp <= 0) {
+            this.turnState = 'win';
+            setTimeout(() => this.winBattle(), 600);
+        }
+    }
+
+    winBattle() {
+        const rewards = [];
+        
+        rewards.push({ 
+            name: "🩹 包扎伤口", desc: "回复 10 HP",
+            fn: () => { this.healPlayer(10); this.nextFloor(); } 
+        });
+
+        const newItem = ITEMS_DB[Math.floor(Math.random() * ITEMS_DB.length)];
+        const hasItem = this.inventory.find(i => i.id === newItem.id);
+        
+        if (hasItem) {
+            rewards.push({
+                name: `✨ 强化装备`, desc: `${newItem.icon}${newItem.name} 等级 +1`,
+                fn: () => { this.addItem(newItem.id); this.nextFloor(); }
+            });
+        } else {
+            rewards.push({
+                name: `🗡️ 获取装备`, desc: `${newItem.icon}${newItem.name}`,
+                fn: () => { this.addItem(newItem.id); this.nextFloor(); }
+            });
+        }
+
+        if (this.floor === 2 || this.floor === 4) {
+            rewards.push({
+                name: "🎲 扩展骰子", desc: "每回合骰子 +1",
+                fn: () => { this.player.diceCount++; this.nextFloor(); }
+            });
+        } else {
+            rewards.push({
+                name: "❤️ 强身健体", desc: "最大生命 +5",
+                fn: () => { this.player.maxHp+=5; this.player.hp+=5; this.nextFloor(); }
+            });
+        }
+
+        this.showRewardModal("战斗胜利", "选择你的奖励", false, rewards);
+    }
+
+    nextFloor() {
+        this.floor++;
+        document.getElementById('reward-modal').classList.remove('active');
+        this.initFloor();
+    }
+
+    addItem(id) {
+        const existing = this.inventory.find(i => i.id === id);
+        if (existing) existing.level++;
+        else this.inventory.push({ id: id, level: 0, storedDice: [] });
+    }
+
+    updateUI() {
+        // HUD
+        document.getElementById('hp-val').innerText = this.player.hp;
+        document.getElementById('max-hp-val').innerText = this.player.maxHp;
+        document.getElementById('armor-val').innerText = this.player.armor;
+        document.getElementById('floor-val').innerText = this.floor;
+        
+        const btnReroll = document.getElementById('btn-reroll');
+        document.getElementById('reroll-count').innerText = this.player.rerolls;
+        btnReroll.disabled = this.player.rerolls <= 0 || this.handDice.length === 0;
+
+        // Modifier
+        const modEl = document.getElementById('modifier-area');
+        if (this.currentMod.id !== 'normal') {
+            modEl.style.display = 'flex';
+            modEl.innerHTML = `<span>${this.currentMod.desc}</span>`;
+            modEl.style.color = this.currentMod.color;
+            modEl.style.borderColor = this.currentMod.color;
+        } else {
+            modEl.style.display = 'none';
+        }
+
+        // Enemy
+        if (this.enemy) {
+            document.getElementById('enemy-name').innerText = this.enemy.name;
+            document.getElementById('enemy-hp-text').innerText = `${this.enemy.currentHp}/${this.enemy.maxHp}`;
+            document.getElementById('enemy-avatar').innerText = this.enemy.emoji;
+            
+            let intentStr = "";
+            if (this.enemy.currentHp <= 0) intentStr = "💀 已击败";
+            else if (this.currentMod.id === 'fog') intentStr = "⚠️ 意图不明 (?)";
+            else intentStr = `⚠️ 准备攻击 ${this.enemy.dmg} ${this.currentMod.id==='rage' ? '(+2)':''}`;
+            
+            document.getElementById('enemy-intent').innerText = intentStr;
+            
+            const pct = (this.enemy.currentHp / this.enemy.maxHp) * 100;
+            document.getElementById('enemy-hp-fill').style.width = `${pct}%`;
+        }
+
+        // Hand
+        const handArea = document.getElementById('hand-area');
+        handArea.innerHTML = '';
+        this.handDice.forEach((d, idx) => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = getDieHTML(d.value);
+            const dieEl = wrapper.firstElementChild;
+            if (this.selectedHandIndex === idx) dieEl.classList.add('selected');
+            dieEl.onclick = () => this.selectHandDie(idx);
+            handArea.appendChild(dieEl);
+        });
+
+        // Board
+        const boardArea = document.getElementById('board-area');
+        boardArea.innerHTML = '';
+        this.inventory.forEach((item, idx) => {
+            const dbItem = ITEMS_DB.find(i => i.id === item.id);
+            const el = document.createElement('div');
+            el.className = `card ${this.selectedHandIndex !== null ? 'active-target' : ''}`;
+            
+            let storedHtml = '';
+            item.storedDice.forEach(sd => {
+                let bonus = sd.bonus ? `<span class="bonus-text">${sd.bonus}</span>` : '';
+                storedHtml += `<div style="position:relative;">${getDieHTML(sd.value)} ${bonus}</div>`;
+            });
+
+            let lvlBadge = item.level > 0 ? `<span class="card-lvl">+${item.level}</span>` : '';
+            let dynDesc = dbItem.desc; 
+            if(item.level > 0) dynDesc += ` (Lv.${item.level})`;
+
+            el.innerHTML = `
+                <div class="card-header">
+                    <span>${dbItem.icon} ${dbItem.name}</span> ${lvlBadge}
+                </div>
+                <div class="card-desc">${dynDesc}</div>
+                <div class="card-slots">${storedHtml}</div>
+            `;
+            el.onclick = () => this.useItem(idx);
+            boardArea.appendChild(el);
+        });
+    }
+
+    log(msg) { document.getElementById('log-area').innerText = msg; }
+    shake(id) {
+        const el = document.getElementById(id);
+        el.classList.remove('shake');
+        void el.offsetWidth;
+        el.classList.add('shake');
+    }
+
+    showRewardModal(title, msg, isGameOver, options = []) {
+        const modal = document.getElementById('reward-modal');
+        document.getElementById('reward-title').innerText = title;
+        document.getElementById('reward-msg').innerText = msg;
+        const optsDiv = document.getElementById('reward-options');
+        optsDiv.innerHTML = '';
+
+        if (isGameOver) {
+            const btn = document.createElement('div');
+            btn.className = 'reward-option';
+            btn.innerHTML = `<strong>🔄 重新开始</strong><small>再次挑战地下城</small>`;
+            btn.onclick = () => location.reload();
+            optsDiv.appendChild(btn);
+        } else {
+            options.forEach(opt => {
+                const btn = document.createElement('div');
+                btn.className = 'reward-option';
+                btn.innerHTML = `<strong>${opt.name}</strong><small>${opt.desc}</small>`;
+                btn.onclick = opt.fn;
+                optsDiv.appendChild(btn);
+            });
+        }
+        modal.classList.add('active');
+    }
+}
+
+function toggleRules() {
+    document.getElementById('rules-modal').classList.toggle('active');
+}
+
+const game = new Game();
+</script>
+</body>
+</html>
