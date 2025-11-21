@@ -22,7 +22,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center; /* 垂直居中 */
+            justify-content: center;
             color: #fff;
             padding: 40px 20px;
         }
@@ -42,7 +42,7 @@
         }
 
         h1 {
-            font-size: 3rem; /*稍微调大一点*/
+            font-size: 3rem;
             font-weight: 800;
             letter-spacing: 1px;
             margin-bottom: 0.5rem;
@@ -56,24 +56,24 @@
             color: #a5a5a5;
             font-size: 1.1rem;
             font-weight: 300;
-            letter-spacing: 2px; /* 增加字间距让标语更有质感 */
+            letter-spacing: 2px;
         }
 
-        /* 修复的核心：容器布局 */
+        /* 容器布局：完美居中+换行 */
         .card-container {
             display: flex;
-            flex-wrap: wrap;      /* 允许换行 */
-            justify-content: center; /* 核心：让所有卡片整体居中 */
-            gap: 40px;            /* 卡片之间的间距 */
-            max-width: 1200px;    /* 限制最大宽度，确保PC端一行最多3个 */
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 40px;
+            max-width: 1200px;
             width: 100%;
-            margin-bottom: 3rem;  /* 确保页脚不会贴着卡片 */
+            margin-bottom: 3rem;
         }
 
-        /* 修复的核心：卡片固定尺寸 */
+        /* 卡片样式：固定尺寸防止变形 */
         .game-card {
-            width: 280px;   /* 固定宽度，不再自动拉伸，防止出现巨型卡片 */
-            height: 320px;  /* 固定高度，保证整齐划一 */
+            width: 280px;
+            height: 320px;
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -83,18 +83,17 @@
             color: white;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             
-            /* 内容布局 */
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center; /* 内容垂直居中 */
+            justify-content: center;
             text-align: center;
             position: relative;
         }
 
-        /* 卡片图标 */
+        /* 图标 */
         .icon {
-            font-size: 4rem; /* 图标大一点 */
+            font-size: 4rem;
             margin-bottom: 1.5rem;
             transition: transform 0.4s ease;
         }
@@ -122,12 +121,14 @@
             transform: scale(1.2) rotate(5deg);
         }
 
-        /* 霓虹光效 */
-        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }
-        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }
-        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }
-        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }
-        .game-card.mancala:hover { box-shadow: 0 15px 30px rgba(157, 0, 255, 0.4); }
+        /* 专属霓虹光效 */
+        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }       /* 青色 */
+        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }      /* 玫红 */
+        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }    /* 金黄 */
+        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); } /* 绿色 */
+        
+        /* 数独专属光效：智力蓝 */
+        .game-card.sudoku:hover { box-shadow: 0 15px 30px rgba(30, 144, 255, 0.4); }
 
         /* 入场动画 */
         .game-card {
@@ -149,25 +150,23 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 页脚样式 */
+        /* 页脚 */
         footer {
             width: 100%;
             text-align: center;
             color: rgba(255,255,255,0.3);
             font-size: 0.9rem;
-            margin-top: auto; /* 确保在内容少时也尽量靠下 */
+            margin-top: auto;
         }
 
-        /* 响应式：手机端适配 */
+        /* 手机端适配 */
         @media (max-width: 768px) {
             h1 { font-size: 2.2rem; }
-            .card-container { 
-                gap: 20px; 
-            }
+            .card-container { gap: 20px; }
             .game-card { 
-                width: 100%; /* 手机端占满宽度 */
-                max-width: 340px; /* 限制一下最大宽度 */
-                height: auto; /* 高度自适应 */
+                width: 100%; 
+                max-width: 340px; 
+                height: auto; 
                 padding: 2rem;
             }
         }
@@ -209,11 +208,11 @@
             <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
         </a>
 
-        <!-- 宝石棋 -->
-        <a href="./mancala/" class="game-card mancala">
-            <div class="icon">💎</div>
-            <div class="game-title">宝石棋</div>
-            <div class="game-desc">播撒智慧的宝石<br>Mancala</div>
+        <!-- 数独 (已替换) -->
+        <a href="./sudoku/" class="game-card sudoku">
+            <div class="icon">🔢</div>
+            <div class="game-title">数独</div>
+            <div class="game-desc">逻辑推理的数字迷宫<br>Sudoku</div>
         </a>
     </div>
 
