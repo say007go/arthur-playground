@@ -24,7 +24,7 @@
             align-items: center;
             justify-content: center;
             color: #fff;
-            padding: 20px;
+            padding: 40px 20px; /* 增加上下内边距 */
         }
 
         @keyframes gradientBG {
@@ -38,6 +38,7 @@
             text-align: center;
             margin-bottom: 3rem;
             animation: fadeInDown 1s ease-out;
+            width: 100%;
         }
 
         h1 {
@@ -57,12 +58,13 @@
             font-weight: 300;
         }
 
-        /* 网格布局容器 */
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 默认两列 */
+        /* 布局容器：升级为Flex布局以完美支持奇数个卡片 */
+        .card-container {
+            display: flex;
+            flex-wrap: wrap; /* 允许换行 */
+            justify-content: center; /* 最后一行居中对齐 */
             gap: 2rem;
-            max-width: 800px;
+            max-width: 1000px; /* 稍微加宽 */
             width: 100%;
         }
 
@@ -82,6 +84,10 @@
             text-align: center;
             position: relative;
             overflow: hidden;
+            
+            /* Flex控制卡片尺寸 */
+            flex: 1 1 300px; /* 基础宽度300px，允许伸缩 */
+            max-width: 350px; /* 限制最大宽度，防止在宽屏上太长 */
         }
 
         /* 卡片图标 */
@@ -108,37 +114,34 @@
             transform: translateY(-10px) scale(1.02);
             background: rgba(255, 255, 255, 0.1);
             border-color: rgba(255, 255, 255, 0.3);
+            z-index: 10;
         }
 
         .game-card:hover .icon {
             transform: scale(1.2) rotate(5deg);
         }
 
-        /* 针对不同游戏的专属霓虹光晕 */
-        .game-card.dice:hover {
-            box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3);
-        }
-        .game-card.color:hover {
-            box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3);
-        }
-        .game-card.connect:hover {
-            box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3);
-        }
-        .game-card.backgammon:hover {
-            box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3);
-        }
+        /* 专属霓虹光晕颜色 */
+        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }
+        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }
+        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }
+        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }
+        
+        /* 新增：宝石棋专属光晕 (宝石紫/蓝) */
+        .game-card.mancala:hover { box-shadow: 0 15px 30px rgba(157, 0, 255, 0.4); }
 
-        /* 简单的入场动画 */
+        /* 入场动画 */
         .game-card {
             opacity: 0;
             animation: fadeInUp 0.8s ease-out forwards;
         }
+        /* 依次延迟 */
         .game-card:nth-child(1) { animation-delay: 0.1s; }
         .game-card:nth-child(2) { animation-delay: 0.2s; }
         .game-card:nth-child(3) { animation-delay: 0.3s; }
         .game-card:nth-child(4) { animation-delay: 0.4s; }
+        .game-card:nth-child(5) { animation-delay: 0.5s; } /* 新增 */
 
-        /* 动画关键帧 */
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -148,13 +151,11 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 响应式设计：手机端变单列 */
+        /* 响应式微调 */
         @media (max-width: 600px) {
-            .grid-container {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
             h1 { font-size: 2rem; }
+            .card-container { gap: 1.5rem; }
+            .game-card { max-width: 100%; } /* 手机上占满宽度 */
         }
     </style>
 </head>
@@ -165,9 +166,8 @@
         <p class="subtitle">我不摸鱼谁摸鱼</p>
     </header>
 
-    <div class="grid-container">
+    <div class="card-container">
         <!-- 快艇骰子 -->
-        <!-- 注意：href 对应你的文件夹名称 -->
         <a href="./yacht-dice/" class="game-card dice">
             <div class="icon">🎲</div>
             <div class="game-title">快艇骰子</div>
@@ -190,9 +190,16 @@
 
         <!-- 双陆棋 -->
         <a href="./backgammon/" class="game-card backgammon">
-            <div class="icon">♟️</div>
+            <div class="icon"♟️</div>
             <div class="game-title">双陆棋</div>
             <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
+        </a>
+
+        <!-- 新增：宝石棋 -->
+        <a href="./mancala/" class="game-card mancala">
+            <div class="icon">💎</div>
+            <div class="game-title">宝石棋</div>
+            <div class="game-desc">播撒智慧的宝石<br>Mancala</div>
         </a>
     </div>
 
