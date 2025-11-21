@@ -20,7 +20,7 @@
             height: 100vh; color: #fff; overflow: hidden; user-select: none;
         }
 
-        /* 顶部栏 - 固定高度 */
+        /* 顶部栏 */
         #header-bar {
             width: 100%; height: 50px; background: #251814;
             display: flex; justify-content: space-between; align-items: center;
@@ -35,7 +35,7 @@
             color: #ccc; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;
         }
 
-        /* 游戏桌容器 - 桌面端默认 */
+        /* 游戏桌容器 */
         #game-table {
             position: relative; 
             flex: 1; 
@@ -48,54 +48,41 @@
             transform-origin: center center;
         }
 
-        /* ---------------------------------------------------------
-           ★ 核心优化：手机竖屏适配 ★
-           --------------------------------------------------------- */
+        /* 手机竖屏适配 */
         @media (max-width: 768px) {
             #header-bar { position: fixed; top: 0; width: 100%; }
             
             #game-table {
                 position: absolute;
-                /* 1. 下移中心点：避开顶部Header遮挡 (50% + 25px偏移) */
-                top: calc(50% + 30px); 
+                top: calc(50% + 25px); 
                 left: 50%;
-                
-                /* 2. 极致拉长：利用全屏高度减去头尾留白 */
-                width: calc(100vh - 100px); 
-                
-                /* 3. 宽度填满 */
-                height: 96vw;
-                
-                /* 4. 旋转90度 */
+                /* 极致拉长棋盘，留出头尾 */
+                width: calc(100vh - 90px); 
+                height: 95vw;
                 transform: translate(-50%, -50%) rotate(90deg);
                 margin: 0;
                 border-radius: 6px;
                 padding: 6px;
             }
 
-            /* 按钮反转 */
             #roll-btn {
                 transform: rotate(-90deg);
                 box-shadow: -5px 5px 20px rgba(0,0,0,0.6) !important;
             }
             
             .modal { z-index: 99999; }
+            #bar-area { min-width: 36px !important; width: 36px !important; }
 
-            /* Bar区缩小：40px */
-            #bar-area { min-width: 40px !important; width: 40px !important; }
-
-            /* 三角形重算：基于新的超长棋盘 */
+            /* 优化三角形比例，防止重叠 */
             .point::before {
-                /* 棋盘宽 (100vh-100px) / 24个格 - 1px缝隙 */
-                border-left-width: calc(((100vh - 100px) / 24) - 1px) !important;
-                border-right-width: calc(((100vh - 100px) / 24) - 1px) !important;
-                /* 高度拉长 */
+                border-left-width: calc(((100vh - 90px) / 24) - 0.5px) !important;
+                border-right-width: calc(((100vh - 90px) / 24) - 0.5px) !important;
                 border-top-width: 38vw !important; 
                 border-bottom-width: 38vw !important; 
             }
             
-            .checker { max-width: 34px !important; }
-            .die { width: 32px; height: 32px; }
+            .checker { max-width: 36px !important; }
+            .die { width: 34px; height: 34px; }
         }
 
         /* 棋盘面 */
@@ -125,11 +112,10 @@
         .point {
             flex: 1; height: 100%; position: relative;
             display: flex; flex-direction: column; align-items: center; cursor: pointer;
-            min-width: 0; /* 防止Flex溢出 */
+            min-width: 0;
         }
         .row.bottom .point { justify-content: flex-end; }
         
-        /* 桌面端默认 */
         .point::before {
             content: ''; position: absolute; width: 0; height: 0;
             border-left: 28px solid transparent; border-right: 28px solid transparent;
@@ -141,7 +127,6 @@
         .row.bottom .point:nth-child(odd)::before { border-bottom: 36vh solid var(--point-1); opacity: 0.85; }
         .row.bottom .point:nth-child(even)::before { border-bottom: 36vh solid var(--point-2); opacity: 0.85; }
 
-        /* 高亮 - 层级20覆盖棋子 */
         .point.highlight::after {
             content: ''; position: absolute; inset: 0;
             background: rgba(255, 215, 0, 0.4); z-index: 20; pointer-events: none;
@@ -149,7 +134,7 @@
         .row.top .point.highlight::after { clip-path: polygon(50% 100%, 0 0, 100% 0); }
         .row.bottom .point.highlight::after { clip-path: polygon(50% 0, 0 100%, 100% 100%); }
 
-        /* Bar - 桌面默认宽度，手机覆盖为40px */
+        /* Bar */
         #bar-area {
             width: 70px; min-width: 40px; background: #231410;
             border-left: 3px solid #150b09; border-right: 3px solid #150b09;
@@ -313,7 +298,7 @@
             <h3>3. 攻击（吃子）</h3>
             <p>落点若只有<strong>对方1枚棋子</strong>，可将其【吃掉】送入中间Bar区。被吃方必须先掷骰子回场，才能走其他棋子。</p>
             <h3>4. 离场 (Bear Off)</h3>
-            <p>当所有15枚棋子都进入己方内盘时，可按点数将棋子移出棋盘。</p>
+            <p>当所有15枚棋子都进入己方内盘时，可按点数将棋子移出棋盘。若骰子点数大于剩余棋子位置（例如掷6，棋子在3），且无更高位棋子，可移出该棋子。</p>
         </div>
         <div class="modal-footer">
             <button class="btn-primary" onclick="document.getElementById('rules-modal').style.display='none'">我明白了</button>
@@ -380,12 +365,10 @@
             this.throwDiceVisual(d1,d2);
             setTimeout(()=>{
                 this.setStatus(`点数: ${d1}, ${d2}`);
-                // 掷骰子后立即检查是否有步数
                 this.checkGameState();
             }, 800);
         }
 
-        // 核心逻辑修复：每一步后（包括刚掷完骰子）都检查状态
         checkGameState() {
              if(!this.hasMoves()) {
                 setTimeout(()=>{ 
@@ -418,12 +401,21 @@
             if(this.animating || (this.mode==='pve'&&this.turn===2)) return;
             if(this.selected!==null) {
                 if(this.tryMove(this.selected,i)) return;
+                // 如果点击的不是合法目标，取消选中
                 this.selected=null; this.render();
             }
             if(this.turn===1&&this.p1Bar.length>0) return this.clickBar(1);
             if(this.turn===2&&this.p2Bar.length>0) return this.clickBar(2);
+            
             if(this.state[i].length>0 && this.state[i][0]===this.turn) {
-                this.selected=i; this.highlight(i);
+                this.selected=i; 
+                this.highlight(i);
+                // ★ 智能操作：如果该棋子只有唯一的一步离场操作，直接执行 ★
+                const moves = this.getMoves(i);
+                if(moves.length === 1 && (moves[0] <= 0 || moves[0] >= 25)) {
+                    // 增加一点小延迟让玩家看到选中效果
+                    setTimeout(() => this.tryMove(i, moves[0]), 100);
+                }
             }
         }
 
@@ -460,24 +452,34 @@
             let res=[]; 
             [...new Set(this.movesLeft)].forEach(d=>{
                 let t = (this.turn===1) ? (src==='bar'?25:src)-d : (src==='bar'?0:src)+d;
-                if(this.check(src,t)) res.push(t);
+                // 传递计算出的目标点t给check
+                if(this.check(src, t)) res.push(t);
             });
             return res;
         }
 
         check(src,dst) {
+            // ★ 核心修复：允许 dst <= 0 且使用大点数骰子的情况（高位溢出） ★
             if(this.turn===1 && dst<=0) {
                 if(!this.canBear(1)) return false;
-                let need = (src==='bar'?25:src); 
-                if(this.movesLeft.includes(need)) return true; 
-                if(dst<0 && this.isHigh(src)) return true; 
+                
+                // 计算需要的实际距离
+                let need = (src==='bar'?25:src);
+                
+                // 1. 精确匹配
+                if(this.movesLeft.includes(need)) return true;
+                
+                // 2. 溢出匹配：目标点 < 0 (例如 3-6 = -3)，或者是手动点击离场区(dst=0)
+                // 必须满足：没有更高位棋子，且有比距离大的骰子
+                if (this.isHigh(src) && this.movesLeft.some(d => d > need)) return true;
+                
                 return false;
             }
             if(this.turn===2 && dst>=25) {
                 if(!this.canBear(2)) return false;
                 let need = 25-(src==='bar'?0:src);
                 if(this.movesLeft.includes(need)) return true;
-                if(dst>25 && this.isHigh(src)) return true;
+                if(this.isHigh(src) && this.movesLeft.some(d => d > need)) return true;
                 return false;
             }
             const s=this.state[dst];
@@ -498,14 +500,21 @@
         }
 
         tryMove(src,dst) {
+            // 再次检查合法性
             if(!this.check(src,dst)) return false;
             
             let dist = (this.turn===1) ? (src==='bar'?25:src)-(dst<=0?0:dst) : (dst>=25?25:dst)-(src==='bar'?0:src);
+            
+            // 查找是否有匹配的骰子
             let idx = this.movesLeft.indexOf(dist);
+            
+            // 如果没有精确匹配，检查是否是溢出移动（高位离场）
             if(idx===-1 && ((this.turn===1 && dst<=0)||(this.turn===2 && dst>=25))) {
+                // 找到第一个大于距离的骰子
                 idx=this.movesLeft.findIndex(d=>d>dist);
             }
-            if(idx===-1) return false;
+            
+            if(idx===-1) return false; // 理论上check通过了不应到这一步，做防御性编程
 
             this.movesLeft.splice(idx,1);
             this.animating=true; this.selected=null; this.render();
@@ -519,7 +528,6 @@
                 if(this.movesLeft.length===0) {
                      setTimeout(()=>this.switchTurn(), 500);
                 } else {
-                    // 必须再次检查，防止出现剩余步数无法走导致卡死的情况
                     this.checkGameState();
                 }
             });
