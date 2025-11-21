@@ -1,1 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arthur's Playground</title>
+    <style>
+        /* 全局重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
 
+        /* 动态背景 */
+        body {
+            background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #121212);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            padding: 20px;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* 标题样式 */
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 1s ease-out;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            background: linear-gradient(to right, #fff, #a5a5a5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: #a5a5a5;
+            font-size: 1rem;
+            font-weight: 300;
+        }
+
+        /* 网格布局容器 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 默认两列 */
+            gap: 2rem;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        /* 游戏卡片样式 */
+        .game-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            text-decoration: none;
+            color: white;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 卡片图标 */
+        .icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            transition: transform 0.4s ease;
+        }
+
+        .game-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .game-desc {
+            font-size: 0.9rem;
+            color: #ccc;
+            line-height: 1.4;
+        }
+
+        /* 炫酷的 Hover 效果 */
+        .game-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .game-card:hover .icon {
+            transform: scale(1.2) rotate(5deg);
+        }
+
+        /* 针对不同游戏的专属霓虹光晕 */
+        .game-card.dice:hover {
+            box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3);
+        }
+        .game-card.color:hover {
+            box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3);
+        }
+        .game-card.connect:hover {
+            box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3);
+        }
+        .game-card.backgammon:hover {
+            box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3);
+        }
+
+        /* 简单的入场动画 */
+        .game-card {
+            opacity: 0;
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+        .game-card:nth-child(1) { animation-delay: 0.1s; }
+        .game-card:nth-child(2) { animation-delay: 0.2s; }
+        .game-card:nth-child(3) { animation-delay: 0.3s; }
+        .game-card:nth-child(4) { animation-delay: 0.4s; }
+
+        /* 动画关键帧 */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 响应式设计：手机端变单列 */
+        @media (max-width: 600px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+            h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Arthur's Playground</h1>
+        <p class="subtitle">我不摸鱼谁摸鱼</p>
+    </header>
+
+    <div class="grid-container">
+        <!-- 快艇骰子 -->
+        <!-- 注意：href 对应你的文件夹名称 -->
+        <a href="./yacht-dice/" class="game-card dice">
+            <div class="icon">🎲</div>
+            <div class="game-title">快艇骰子</div>
+            <div class="game-desc">策略与运气的博弈<br>Yacht Dice</div>
+        </a>
+
+        <!-- 猜颜色 -->
+        <a href="./color-guess/" class="game-card color">
+            <div class="icon">🎨</div>
+            <div class="game-title">猜颜色</div>
+            <div class="game-desc">考验你的推理能力<br>Color Guess</div>
+        </a>
+
+        <!-- 四子棋 -->
+        <a href="./connect-four/" class="game-card connect">
+            <div class="icon">🔴</div>
+            <div class="game-title">四子棋</div>
+            <div class="game-desc">经典的连珠策略游戏<br>Connect 4</div>
+        </a>
+
+        <!-- 双陆棋 -->
+        <a href="./backgammon/" class="game-card backgammon">
+            <div class="icon">♟️</div>
+            <div class="game-title">双陆棋</div>
+            <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
+        </a>
+    </div>
+
+    <footer style="margin-top: 3rem; color: rgba(255,255,255,0.3); font-size: 0.8rem;">
+        © 2025 by ArthurZhu
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>快艇骰子（by Arthur）</title>
+    <style>
+        /* --- CSS 变量定义 --- */
+        :root {
+            --bg-color: #8b0000;
+            --container-bg: radial-gradient(circle, #c62828 20%, #8e0000 90%);
+            --border-color: #ffd700;
+            
+            /* 配色 */
+            --p1-bg: #e3f2fd;
+            --p1-header: #1565c0;
+            --p2-bg: #e8f5e9;
+            --p2-header: #2e7d32;
+            --cat-header: #b71c1c; /* 排列组合名背景色 */
+            
+            --highlight-bg: #fff9c4;
+            --hover-bg: #ffeb3b;
+
+            /* 默认尺寸 (PC) */
+            --dice-size: 68px;
+            --dot-size: 14px;
+            --font-base: 16px;
+            --btn-padding: 12px 50px;
+        }
+
+        /* --- 手机端尺寸调整 --- */
+        @media (max-width: 768px) {
+            :root {
+                --dice-size: 46px; 
+                --dot-size: 10px;
+                --font-base: 14px;
+                --btn-padding: 10px 20px;
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            font-family: "Microsoft YaHei", "Heiti SC", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; 
+            height: 100dvh; 
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 游戏主容器 */
+        #game-container {
+            width: 95%;
+            max-width: 1200px;
+            height: 90%;
+            max-height: 850px;
+            background: var(--container-bg);
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            border-radius: 20px;
+            border: 4px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 手机端容器 */
+        @media (max-width: 768px) {
+            #game-container {
+                width: 100%;
+                height: 100%;
+                border: none;
+                border-radius: 0;
+                max-height: none;
+                box-shadow: none;
+            }
+        }
+
+        /* 顶部导航栏 */
+        header {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+            background: rgba(0,0,0,0.1);
+        }
+
+        #logo {
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 900;
+            font-style: italic;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #rules-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        /* 游戏内容区布局 */
+        #main-content {
+            flex: 1; 
+            display: flex;
+            overflow: hidden; 
+            flex-direction: row; 
+        }
+
+        @media (max-width: 768px) {
+            #main-content {
+                flex-direction: column; 
+            }
+        }
+
+        /* --- 上半部：骰子区 --- */
+        #board-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            #board-area {
+                flex: 0 0 auto; 
+                padding: 10px 0;
+                background: rgba(0,0,0,0.05);
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+            }
+        }
+
+        #dice-container {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 15px;
+            height: var(--dice-size);
+        }
+
+        .die {
+            width: var(--dice-size);
+            height: var(--dice-size);
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 3px 3px 6px rgba(0,0,0,0.3), inset 0 0 4px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-areas: "a . c" "e g f" "d . b";
+            padding: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, border 0.2s;
+            position: relative;
+        }
+        .die:active { transform: scale(0.95); }
+        
+        .die.held {
+            background-color: #e1f5fe;
+            transform: translateY(-15px);
+            box-shadow: 0 0 15px #2196f3;
+            border: 3px solid #2196f3;
+        }
+        @media (max-width: 768px) {
+            .die.held { transform: translateY(-8px); }
+        }
+
+        .dot {
+            width: var(--dot-size);
+            height: var(--dot-size);
+            background-color: #333;
+            border-radius: 50%;
+            align-self: center;
+            justify-self: center;
+            display: none;
+        }
+        /* 骰子点数布局 */
+        .die[data-val="1"] .dot:nth-child(1) { display: block; grid-area: g; background: #d32f2f; width: calc(var(--dot-size)*1.3); height: calc(var(--dot-size)*1.3);} 
+        .die[data-val="2"] .dot:nth-child(1) { display: block; grid-area: a; } .die[data-val="2"] .dot:nth-child(2) { display: block; grid-area: b; }
+        .die[data-val="3"] .dot:nth-child(1) { display: block; grid-area: a; } .die[data-val="3"] .dot:nth-child(2) { display: block; grid-area: g; } .die[data-val="3"] .dot:nth-child(3) { display: block; grid-area: b; }
+        .die[data-val="4"] .dot:nth-child(1) { display: block; grid-area: a; } .die[data-val="4"] .dot:nth-child(2) { display: block; grid-area: c; } .die[data-val="4"] .dot:nth-child(3) { display: block; grid-area: d; } .die[data-val="4"] .dot:nth-child(4) { display: block; grid-area: b; }
+        .die[data-val="5"] .dot:nth-child(1) { display: block; grid-area: a; } .die[data-val="5"] .dot:nth-child(2) { display: block; grid-area: c; } .die[data-val="5"] .dot:nth-child(3) { display: block; grid-area: g; } .die[data-val="5"] .dot:nth-child(4) { display: block; grid-area: d; } .die[data-val="5"] .dot:nth-child(5) { display: block; grid-area: b; }
+        .die[data-val="6"] .dot:nth-child(1) { display: block; grid-area: a; } .die[data-val="6"] .dot:nth-child(2) { display: block; grid-area: c; } .die[data-val="6"] .dot:nth-child(3) { display: block; grid-area: e; } .die[data-val="6"] .dot:nth-child(4) { display: block; grid-area: f; } .die[data-val="6"] .dot:nth-child(5) { display: block; grid-area: d; } .die[data-val="6"] .dot:nth-child(6) { display: block; grid-area: b; }
+
+        #controls { text-align: center; width: 100%; }
+        
+        #roll-btn {
+            background: linear-gradient(#66bb6a, #2e7d32);
+            border: 2px solid #fff;
+            color: white;
+            padding: var(--btn-padding);
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #1b5e20;
+            transition: transform 0.1s;
+        }
+        #roll-btn:active { transform: translateY(4px); box-shadow: none; }
+        #roll-btn:disabled { filter: grayscale(1); cursor: not-allowed; opacity: 0.8; transform: translateY(4px); box-shadow: none;}
+        
+        #status-text {
+            color: #ffca28;
+            font-size: 1rem;
+            margin-top: 10px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            height: 20px;
+        }
+
+        /* --- 下半部：记分卡区 --- */
+        #score-panel {
+            width: 40%; 
+            min-width: 400px;
+            background-color: #fff;
+            border-left: 5px solid #4e342e;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        @media (max-width: 768px) {
+            #score-panel {
+                width: 100%;
+                min-width: 0;
+                border-left: none;
+                flex: 1; 
+                min-height: 0; 
+            }
+        }
+
+        #table-wrapper {
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 5px;
+            padding-bottom: 20px; 
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: var(--font-base); }
+        th, td { border: 1px solid #ccc; padding: 6px 4px; text-align: center; }
+        
+        /* 表头样式 */
+        thead th { 
+            position: sticky; 
+            top: 0; 
+            z-index: 2;
+            border: 1px solid #888;
+            letter-spacing: 1px;
+        }
+        
+        thead th.col-name { 
+            background-color: var(--cat-header); 
+            color: #fff !important; 
+        }
+        
+        thead th.col-p1 { background-color: var(--p1-header); color: #fff; }
+        thead th.col-p2 { background-color: var(--p2-header); color: #fff; }
+
+        /* 表身列样式 */
+        .col-name { width: 42%; text-align: left; padding-left: 8px; font-weight: bold; }
+        tbody td.col-name { color: #333; }
+
+        td.col-p1 { background-color: var(--p1-bg); color: #000; }
+        td.col-p2 { background-color: var(--p2-bg); color: #000; }
+
+        .row-header td {
+            background-color: #5d4037;
+            color: #fff;
+            font-weight: bold;
+            font-size: 0.9rem;
+            padding: 5px;
+        }
+        .row-static td { background-color: #f5f5f5; color: #666; font-weight: bold; cursor: default !important;}
+        
+        .selectable {
+            background-color: var(--highlight-bg) !important;
+            color: #999 !important;
+            cursor: pointer;
+        }
+        .filled { color: #000 !important; font-weight: 900; cursor: default; }
+
+        #footer-score {
+            padding: 12px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-top: 2px solid #ddd;
+            background: #fff;
+            flex-shrink: 0; 
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        }
+
+        /* 遮罩层 */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            padding: 20px;
+        }
+        .hidden { display: none !important; }
+        
+        .menu-btn {
+            margin: 10px;
+            padding: 14px 0;
+            width: 70%;
+            max-width: 300px;
+            font-size: 1.1rem;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #rules-content {
+            background: #fff;
+            color: #333;
+            padding: 25px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 75%;
+            overflow-y: auto;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        #rules-content h3 { color: #b71c1c; border-bottom: 2px solid #b71c1c; margin-top: 15px; padding-bottom: 5px;}
+
+        .dev-info {
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .rolling { animation: spin 0.2s linear infinite; }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <header>
+        <div id="logo">快艇骰子（by Arthur）</div>
+        <button id="rules-btn" onclick="game.showRules()">规则</button>
+    </header>
+
+    <div id="main-content">
+        <div id="board-area">
+            <div id="dice-container"></div>
+            <div id="controls">
+                <button id="roll-btn" onclick="game.rollDice()">开始摇骰子</button>
+                <div id="status-text">准备开始</div>
+            </div>
+        </div>
+
+        <div id="score-panel">
+            <div id="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-name">排列组合名</th>
+                            <th class="col-p1">我方</th>
+                            <th class="col-p2">对方</th>
+                        </tr>
+                    </thead>
+                    <tbody id="score-body">
+                        </tbody>
+                </table>
+            </div>
+            <div id="footer-score">
+                总分: <span id="total-p1" style="color:#1565c0">0</span> | <span id="total-p2" style="color:#2e7d32">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="menu-overlay" class="overlay">
+        <h1 style="font-size: 2.2rem; color: #ffd700; margin-bottom: 10px; font-style: italic; text-align: center;">快艇骰子<br><span style="font-size: 1.4rem; font-weight: normal; color: #fff;">（by Arthur）</span></h1>
+        
+        <button class="menu-btn" onclick="game.init(1)">单人练习</button>
+        <button class="menu-btn" onclick="game.init(2)">双人对战</button>
+        <button class="menu-btn" onclick="game.init('cpu')">人机对战</button>
+    </div>
+
+    <div id="rules-overlay" class="overlay hidden" onclick="this.classList.add('hidden')">
+        <div id="rules-content" onclick="event.stopPropagation()">
+            <h2 style="text-align: center; margin-top:0;">游戏规则</h2>
+            <p>每回合有 <strong>3次</strong> 摇骰子机会。摇完后，可保留部分骰子重摇其他的。必须在记分表中选择一项得分才能结束回合。</p>
+            
+            <h3>🔴 上区 (数字累积)</h3>
+            <ul>
+                <li><strong>一点 ~ 六点</strong>: 只计算对应数字的总和。</li>
+                <li><strong>奖励分</strong>: 上区得分 ≥ 63分，额外 +35分。</li>
+            </ul>
+
+            <h3>🔵 下区 (特殊组合)</h3>
+            <ul>
+                <li><strong>三条 / 四条</strong>: 3个/4个相同，得分为所有骰子总和。</li>
+                <li><strong>葫芦</strong>: 3个相同+2个相同。固定 25分。</li>
+                <li><strong>小顺</strong>: 4连号。固定 30分。</li>
+                <li><strong>大顺</strong>: 5连号。固定 40分。</li>
+                <li><strong>快艇</strong>: 5个相同。固定 50分。</li>
+                <li><strong>机会</strong>: 任意组合，所有点数相加。</li>
+            </ul>
+
+            <div class="dev-info">开发者：ArthurZhu</div>
+            <div style="text-align: center; color: #999; margin-top: 10px; font-size: 0.8rem;">(点击任意处关闭)</div>
+        </div>
+    </div>
+
+    <div id="end-overlay" class="overlay hidden">
+        <h1 style="color: #ffd700;">游戏结束</h1>
+        <h2 id="winner-msg" style="font-size: 1.5rem; margin: 20px;"></h2>
+        <p id="final-score" style="font-size: 1.2rem;"></p>
+        <button class="menu-btn" onclick="location.reload()">返回主菜单</button>
+    </div>
+</div>
+
+<script>
+const CATEGORIES = [
+    { type: 'header', name: '上区' },
+    { id: 'ones', name: '一点 (1s)', section: 'upper', target: 1 },
+    { id: 'twos', name: '二点 (2s)', section: 'upper', target: 2 },
+    { id: 'threes', name: '三点 (3s)', section: 'upper', target: 3 },
+    { id: 'fours', name: '四点 (4s)', section: 'upper', target: 4 },
+    { id: 'fives', name: '五点 (5s)', section: 'upper', target: 5 },
+    { id: 'sixes', name: '六点 (6s)', section: 'upper', target: 6 },
+    { id: 'sum', name: '上区总和', type: 'static' },
+    { id: 'bonus', name: '奖励分 (+35)', type: 'static' },
+    { id: 'upperTotal', name: '上区合计', type: 'static' },
+    
+    { type: 'header', name: '下区' },
+    { id: '3kind', name: '三条 (3同)', section: 'lower' },
+    { id: '4kind', name: '四条 (4同)', section: 'lower' },
+    { id: 'fullhouse', name: '葫芦', section: 'lower' },
+    { id: 'sm_straight', name: '小顺 (4连)', section: 'lower' },
+    { id: 'lg_straight', name: '大顺 (5连)', section: 'lower' },
+    { id: 'yahtzee', name: '快艇 (5同)', section: 'lower' },
+    { id: 'chance', name: '机会 (全选)', section: 'lower' },
+    { id: 'lowerTotal', name: '下区合计', type: 'static' },
+    { id: 'grandTotal', name: '总得分', type: 'static' }
+];
+
+class YahtzeeGame {
+    constructor() {
+        this.diceValues = [1, 1, 1, 1, 1];
+        this.held = [false, false, false, false, false];
+        this.rollCount = 0; 
+        this.maxRolls = 3;
+        this.turn = 0; 
+        this.mode = 1; 
+        this.scores = [{}, {}]; 
+        this.potential = {}; 
+        this.isRolling = false;
+        this.gameOver = false;
+        
+        this.ui = {
+            diceContainer: document.getElementById('dice-container'),
+            scoreBody: document.getElementById('score-body'),
+            rollBtn: document.getElementById('roll-btn'),
+            status: document.getElementById('status-text'),
+            p1Total: document.getElementById('total-p1'),
+            p2Total: document.getElementById('total-p2')
+        };
+
+        this.setupBoard();
+    }
+
+    setupBoard() {
+        this.ui.diceContainer.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+            let die = document.createElement('div');
+            die.className = 'die';
+            die.id = `die-${i}`;
+            die.onclick = () => this.toggleHold(i);
+            for(let j=0; j<6; j++) die.appendChild(document.createElement('div')).className = 'dot';
+            this.ui.diceContainer.appendChild(die);
+        }
+
+        this.ui.scoreBody.innerHTML = '';
+        CATEGORIES.forEach(cat => {
+            let tr = document.createElement('tr');
+            
+            if (cat.type === 'header') {
+                tr.className = 'row-header';
+                tr.innerHTML = `<td colspan="3">${cat.name}</td>`;
+            } else {
+                if (cat.type === 'static') tr.className = 'row-static';
+                tr.innerHTML = `<td class="col-name">${cat.name}</td>`;
+                [0, 1].forEach(p => {
+                    let td = document.createElement('td');
+                    td.className = `cell-active col-p${p+1}`;
+                    td.id = `cell-${p}-${cat.id}`;
+                    if (cat.section) {
+                        td.onclick = () => this.handleScoreClick(p, cat.id);
+                    }
+                    tr.appendChild(td);
+                });
+            }
+            this.ui.scoreBody.appendChild(tr);
+        });
+    }
+
+    init(mode) {
+        this.mode = mode;
+        document.getElementById('menu-overlay').classList.add('hidden');
+        
+        if (mode === 1) {
+            document.querySelectorAll('.col-p2').forEach(el => el.style.opacity = '1');
+            document.querySelector('thead .col-p2').innerText = "---";
+        } else {
+            document.querySelectorAll('.col-p2').forEach(el => el.style.opacity = '1');
+            document.querySelector('thead .col-p2').innerText = mode === 'cpu' ? "电脑" : "对方";
+        }
+
+        this.newGame();
+    }
+
+    newGame() {
+        this.scores = [{}, {}];
+        this.turn = 0;
+        this.gameOver = false;
+        this.resetTurn();
+        this.updateTotalUI();
+    }
+
+    resetTurn() {
+        this.rollCount = 0;
+        this.held = [false, false, false, false, false];
+        this.potential = {};
+        
+        for(let i=0; i<5; i++) {
+            let die = document.getElementById(`die-${i}`);
+            die.classList.remove('held');
+            die.style.transform = 'none';
+        }
+        
+        this.updateUI();
+        this.clearSelectables();
+        document.getElementById('table-wrapper').scrollTop = 0;
+
+        if (this.mode === 'cpu' && this.turn === 1) {
+            this.ui.status.innerText = "电脑思考中...";
+            setTimeout(() => this.cpuPlay(), 800);
+        }
+    }
+
+    rollDice() {
+        if (this.rollCount >= 3 || this.isRolling) return;
+        if (this.mode === 'cpu' && this.turn === 1) return; 
+
+        this._performRoll();
+    }
+
+    _performRoll(callback) {
+        this.isRolling = true;
+        this.ui.rollBtn.disabled = true;
+
+        let diceEls = document.querySelectorAll('.die');
+        diceEls.forEach((d, i) => {
+            if (!this.held[i]) d.classList.add('rolling');
+        });
+
+        setTimeout(() => {
+            diceEls.forEach((d, i) => {
+                d.classList.remove('rolling');
+                if (!this.held[i]) {
+                    this.diceValues[i] = Math.floor(Math.random() * 6) + 1;
+                    d.setAttribute('data-val', this.diceValues[i]);
+                }
+            });
+
+            this.rollCount++;
+            this.isRolling = false;
+            
+            this.calculatePotential();
+            this.updateUI();
+
+            if (callback) callback();
+
+        }, 400);
+    }
+
+    toggleHold(idx) {
+        if (this.rollCount === 0 || this.isRolling) return;
+        if (this.mode === 'cpu' && this.turn === 1) return;
+
+        this.held[idx] = !this.held[idx];
+        let el = document.getElementById(`die-${idx}`);
+        if (this.held[idx]) el.classList.add('held');
+        else el.classList.remove('held');
+    }
+
+    calculatePotential() {
+        const dice = this.diceValues;
+        const counts = [0,0,0,0,0,0,0];
+        let sum = 0;
+        dice.forEach(v => { counts[v]++; sum += v; });
+
+        let p = {};
+        
+        p.ones = counts[1] * 1;
+        p.twos = counts[2] * 2;
+        p.threes = counts[3] * 3;
+        p.fours = counts[4] * 4;
+        p.fives = counts[5] * 5;
+        p.sixes = counts[6] * 6;
+
+        const maxCount = Math.max(...counts);
+        const has3 = maxCount >= 3;
+        const has4 = maxCount >= 4;
+        const has5 = maxCount >= 5;
+        
+        let has2 = false;
+        let has3exact = false;
+        for(let c of counts) {
+            if(c===2) has2 = true;
+            if(c===3) has3exact = true;
+        }
+        const isFullHouse = (has3exact && has2) || has5;
+
+        let uniq = [...new Set(dice)].sort();
+        let seq = 1;
+        let maxSeq = 1;
+        for(let i=0; i<uniq.length-1; i++) {
+            if(uniq[i+1] === uniq[i]+1) { seq++; maxSeq = Math.max(maxSeq, seq); }
+            else seq = 1;
+        }
+
+        p['3kind'] = has3 ? sum : 0;
+        p['4kind'] = has4 ? sum : 0;
+        p.fullhouse = isFullHouse ? 25 : 0;
+        p.sm_straight = maxSeq >= 4 ? 30 : 0;
+        p.lg_straight = maxSeq >= 5 ? 40 : 0;
+        p.yahtzee = has5 ? 50 : 0;
+        p.chance = sum;
+
+        this.potential = p;
+        this.showSelectables();
+    }
+
+    showSelectables() {
+        this.clearSelectables();
+        let p = this.turn;
+        
+        for (let key in this.potential) {
+            if (this.scores[p][key] !== undefined) continue;
+
+            let cell = document.getElementById(`cell-${p}-${key}`);
+            if (cell) {
+                cell.innerText = this.potential[key];
+                cell.classList.add('selectable');
+            }
+        }
+    }
+
+    clearSelectables() {
+        document.querySelectorAll('.selectable').forEach(el => {
+            el.innerText = '';
+            el.classList.remove('selectable');
+        });
+    }
+
+    handleScoreClick(pIdx, catId) {
+        if (this.gameOver || this.isRolling) return;
+        if (pIdx !== this.turn) return;
+        if (this.rollCount === 0) return; 
+        if (this.scores[pIdx][catId] !== undefined) return; 
+        if (this.mode === 'cpu' && this.turn === 1) return; 
+
+        let score = this.potential[catId] || 0;
+        this.confirmScore(pIdx, catId, score);
+    }
+
+    confirmScore(pIdx, catId, score) {
+        this.scores[pIdx][catId] = score;
+        
+        let cell = document.getElementById(`cell-${pIdx}-${catId}`);
+        cell.classList.remove('selectable');
+        cell.classList.add('filled');
+        cell.innerText = score;
+
+        this.calculateTotals(pIdx);
+        
+        if (this.checkGameOver()) {
+            this.endGame();
+        } else {
+            this.switchTurn();
+        }
+    }
+
+    calculateTotals(p) {
+        let upSum = 0;
+        ['ones','twos','threes','fours','fives','sixes'].forEach(k => upSum += (this.scores[p][k]||0));
+        document.getElementById(`cell-${p}-sum`).innerText = upSum;
+        
+        let bonus = upSum >= 63 ? 35 : 0;
+        document.getElementById(`cell-${p}-bonus`).innerText = bonus;
+        
+        let upTotal = upSum + bonus;
+        document.getElementById(`cell-${p}-upperTotal`).innerText = upTotal;
+
+        let lowSum = 0;
+        ['3kind','4kind','fullhouse','sm_straight','lg_straight','yahtzee','chance'].forEach(k => lowSum += (this.scores[p][k]||0));
+        document.getElementById(`cell-${p}-lowerTotal`).innerText = lowSum;
+
+        let grand = upTotal + lowSum;
+        document.getElementById(`cell-${p}-grandTotal`).innerText = grand;
+        this.scores[p].final = grand;
+        
+        this.updateTotalUI();
+    }
+
+    updateTotalUI() {
+        this.ui.p1Total.innerText = this.scores[0].final || 0;
+        this.ui.p2Total.innerText = this.scores[1].final || 0;
+    }
+
+    switchTurn() {
+        if (this.mode === 1) {
+            this.resetTurn();
+        } else {
+            this.turn = 1 - this.turn;
+            this.resetTurn();
+        }
+    }
+
+    updateUI() {
+        let name = this.turn === 0 ? "我方" : (this.mode === 'cpu' ? "电脑" : "对方");
+        this.ui.status.innerText = `${name} 回合 | 剩余次数: ${this.maxRolls - this.rollCount}`;
+        this.ui.status.style.color = this.turn === 0 ? "#4fc3f7" : "#a5d6a7";
+
+        this.ui.rollBtn.disabled = this.rollCount >= 3;
+        this.ui.rollBtn.innerText = this.rollCount === 0 ? "开始摇骰子" : 
+                                    (this.rollCount < 3 ? `重摇 (${3-this.rollCount})` : "请在表单选分");
+        
+        if (this.mode === 1) this.ui.status.style.color = "#ffd700";
+    }
+
+    checkGameOver() {
+        const totalCats = 13;
+        const p1Done = Object.keys(this.scores[0]).filter(k => k !== 'final').length === totalCats;
+        if (this.mode === 1) return p1Done;
+        const p2Done = Object.keys(this.scores[1]).filter(k => k !== 'final').length === totalCats;
+        return p1Done && p2Done;
+    }
+
+    endGame() {
+        this.gameOver = true;
+        let s1 = this.scores[0].final || 0;
+        let s2 = this.scores[1].final || 0;
+        
+        let msg = "";
+        if (this.mode === 1) msg = `完成! 最终得分: ${s1}`;
+        else {
+            if (s1 > s2) msg = "恭喜! 您赢了!";
+            else if (s2 > s1) msg = (this.mode==='cpu'?"电脑":"对方") + " 获胜!";
+            else msg = "平局!";
+        }
+
+        document.getElementById('winner-msg').innerText = msg;
+        document.getElementById('final-score').innerText = this.mode === 1 ? "" : `${s1} - ${s2}`;
+        document.getElementById('end-overlay').classList.remove('hidden');
+    }
+
+    showRules() {
+        document.getElementById('rules-overlay').classList.remove('hidden');
+    }
+
+    // --- 增强版 策略型 AI ---
+    cpuPlay() {
+        if (this.gameOver || this.turn !== 1) return;
+
+        const performStep = () => {
+            let counts = {};
+            this.diceValues.forEach(x => counts[x] = (counts[x]||0)+1);
+            
+            // 检查已满的分类
+            const p2Scores = this.scores[1];
+            const needYahtzee = p2Scores['yahtzee'] === undefined;
+            const needLgStr = p2Scores['lg_straight'] === undefined;
+            const needSmStr = p2Scores['sm_straight'] === undefined;
+            
+            // 1. 智能 Hold 策略
+            this.held = [false,false,false,false,false];
+            
+            // 优先凑快艇 (4个或5个一样)
+            let maxCount = 0;
+            let maxVal = 0;
+            for(let k in counts) { if(counts[k]>maxCount){ maxCount=counts[k]; maxVal=parseInt(k); } }
+            
+            let holding = false;
+            
+            // 策略 A: 有4个或5个一样的 -> 锁定
+            if (maxCount >= 4) {
+                this.diceValues.forEach((v,i) => { if(v===maxVal) this.held[i]=true; });
+                holding = true;
+            }
+            // 策略 B: 顺子 (如果有大顺/小顺需求)
+            else if (!holding && (needLgStr || needSmStr)) {
+                // 简单顺子检测：保留连续骰子
+                let uniq = [...new Set(this.diceValues)].sort();
+                // 检查是否有3个或4个连续
+                let seq = [];
+                for(let i=0; i<uniq.length; i++) {
+                     if(seq.length===0 || uniq[i]===seq[seq.length-1]+1) seq.push(uniq[i]);
+                     else if (seq.length < 3) seq = [uniq[i]]; 
+                }
+                if (seq.length >= 3) {
+                    // 保留这些顺子
+                    this.diceValues.forEach((v,i) => { if(seq.includes(v)) this.held[i]=true; });
+                    holding = true;
+                }
+            }
+            
+            // 策略 C: 凑上区高分 (6,5,4) 或 凑三条
+            if (!holding) {
+                // 如果有2个以上6/5/4，且上区没填，保留
+                if (counts[6]>=2 && p2Scores['sixes']===undefined) maxVal=6;
+                else if (counts[5]>=2 && p2Scores['fives']===undefined) maxVal=5;
+                else if (counts[4]>=2 && p2Scores['fours']===undefined) maxVal=4;
+                
+                // 默认保留最多的那个
+                this.diceValues.forEach((v,i) => { if(v===maxVal) this.held[i]=true; });
+            }
+            
+            // 更新UI
+            this.diceValues.forEach((v,i) => {
+                let el = document.getElementById(`die-${i}`);
+                if(this.held[i]) el.classList.add('held'); else el.classList.remove('held');
+            });
+
+            // 2. 决定是重摇还是得分
+            if (this.rollCount < 3) {
+                // 如果已经是快艇了，不再摇
+                if (maxCount === 5 && needYahtzee) {
+                    this.calculatePotential();
+                    setTimeout(() => this.confirmScore(1, 'yahtzee', 50), 500);
+                } else {
+                    this._performRoll(() => { setTimeout(performStep, 1000); });
+                }
+            } else {
+                // 3. 智能选分
+                this.calculatePotential();
+                let bestKey = null; 
+                let maxWeight = -9999;
+                let available = Object.keys(this.potential).filter(k => this.scores[1][k] === undefined);
+                
+                available.forEach(k => {
+                    let s = this.potential[k];
+                    let weight = s;
+                    
+                    // 权重调整系统
+                    if (k === 'yahtzee') {
+                        if (s === 50) weight += 1000; // 必选快艇
+                        else weight -= 100; // 尽量不填0分快艇
+                    }
+                    else if (k === 'lg_straight' && s === 40) weight += 200;
+                    else if (k === 'sm_straight' && s === 30) weight += 100;
+                    else if (['ones','twos','threes'].includes(k)) {
+                        // 1-3点如果不满3个，尽量不填，除非是作为垃圾桶
+                        let count = s / (k==='ones'?1:(k==='twos'?2:3));
+                        if (count < 3) weight -= 15;
+                    }
+                    else if (['fours','fives','sixes'].includes(k)) {
+                        // 4-6点如果有3个以上，加分（为了63分奖励）
+                        let val = (k==='fours'?4:(k==='fives'?5:6));
+                        if (s >= val * 3) weight += 25;
+                    }
+                    
+                    // 如果得分是0，极大降低权重（除非没得选）
+                    if (s === 0) weight -= 500;
+
+                    if (weight > maxWeight) { maxWeight = weight; bestKey = k; }
+                });
+
+                // 如果全是负权重（必须填0），选择牺牲品
+                if (maxWeight < -400) {
+                    // 牺牲优先级：1s > 2s > Yahtzee > 3s
+                    const trashOrder = ['ones','twos','yahtzee','threes','fours'];
+                    for(let t of trashOrder) {
+                        if(available.includes(t)) { bestKey = t; break; }
+                    }
+                }
+                
+                if (!bestKey && available.length > 0) bestKey = available[0];
+                
+                if (bestKey) {
+                    setTimeout(() => {
+                        this.confirmScore(1, bestKey, this.potential[bestKey]);
+                    }, 500);
+                }
+            }
+        };
+
+        this._performRoll(() => {
+            setTimeout(performStep, 1000);
+        });
+    }
+}
+
+const game = new YahtzeeGame();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>猜颜色(by Arthur)</title>
+    <style>
+        /* --- 1. 核心变量定义 --- */
+        :root {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --board-bg: #2a2a2a;
+            --hole-active: #333;
+            --text-primary: #f0f0f0;
+            --text-secondary: #aaa;
+            
+            /* 游戏配色 */
+            --c-blue: #3B4CC0;
+            --c-red: #D32F2F;
+            --c-green: #388E3C;
+            --c-yellow: #FBC02D;
+            --c-pink: #E040FB;
+            --c-white: #E0E0E0;
+            
+            /* 反馈配色 */
+            --peg-exact: #FF6F00; /* 全对 */
+            --peg-partial: #FFFFFF; /* 半对 */
+            
+            /* 尺寸与间距 */
+            --marble-size: 38px;
+            --app-max-width: 480px;
+        }
+
+        /* --- 2. 全局重置 --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            /* 使用 dvh 兼容移动端地址栏变化 */
+            min-height: 100dvh; 
+            display: flex;
+            justify-content: center;
+        }
+
+        /* --- 3. 主应用容器 --- */
+        .app-container {
+            width: 100%;
+            max-width: var(--app-max-width);
+            background-color: var(--container-bg);
+            min-height: 100dvh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0,0,0,0.6);
+        }
+
+        /* --- 4. 顶部导航 --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .header h1 { margin: 0; font-size: 1.25rem; font-weight: 700; letter-spacing: 0.5px; }
+        
+        .btn-text {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-text:active { background: rgba(255,255,255,0.2); }
+
+        /* --- 5. 游戏状态区 --- */
+        .status-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.2);
+            padding: 8px;
+            border-radius: 8px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        
+        .player-indicator {
+            text-align: center;
+            background: rgba(76, 175, 80, 0.15);
+            color: #66bb6a;
+            padding: 8px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        /* --- 6. 棋盘区域 --- */
+        .game-board {
+            flex: 1; /* 占据剩余空间 */
+            background-color: var(--board-bg);
+            border-radius: 12px;
+            padding: 15px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto; /* 内容过多可滚动 */
+            margin-bottom: 20px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            border-radius: 30px;
+            transition: background 0.3s, transform 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .row.active {
+            background-color: var(--hole-active);
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.15);
+        }
+
+        /* 左侧反馈区 */
+        .feedback-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 4px;
+            padding-right: 12px;
+            border-right: 1px solid #444;
+            margin-right: 10px;
+            width: 36px;
+            flex-shrink: 0;
+        }
+        .peg {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #3a3a3a; /* 空钉颜色 */
+            justify-self: center;
+            align-self: center;
+        }
+        .peg.exact { background: var(--peg-exact); box-shadow: 0 0 3px var(--peg-exact); }
+        .peg.partial { background: var(--peg-partial); box-shadow: 0 0 3px var(--peg-partial); }
+
+        /* 右侧猜测区 */
+        .slots {
+            display: flex;
+            justify-content: space-between;
+            flex-grow: 1;
+            padding: 0 8px;
+        }
+        .marble {
+            width: var(--marble-size);
+            height: var(--marble-size);
+            border-radius: 50%;
+            background: #181818; /* 空洞 */
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .marble.filled {
+            box-shadow: inset -3px -3px 6px rgba(0,0,0,0.4), inset 2px 2px 6px rgba(255,255,255,0.3), 0 4px 6px rgba(0,0,0,0.4);
+            border: none;
+        }
+
+        /* --- 7. 底部控制区 --- */
+        .controls {
+            background: var(--container-bg);
+            padding-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 颜色选择盘 */
+        .color-palette {
+            display: flex;
+            justify-content: space-between;
+            background: #252525;
+            padding: 12px;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .color-btn {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: inset -2px -2px 5px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .color-btn:active { transform: scale(0.9); }
+        
+        /* 颜色样式类 */
+        .bg-blue { background: var(--c-blue); }
+        .bg-red { background: var(--c-red); }
+        .bg-green { background: var(--c-green); }
+        .bg-yellow { background: var(--c-yellow); }
+        .bg-pink { background: var(--c-pink); }
+        .bg-white { background: var(--c-white); }
+
+        /* 操作按钮 */
+        .action-group { display: flex; gap: 12px; }
+        .btn-main {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+        }
+        .btn-main:active { transform: translateY(2px); box-shadow: none; }
+        .btn-del { background: #d32f2f; }
+        .btn-confirm { background: #388e3c; }
+
+        /* --- 8. 弹窗 (Modal) --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            z-index: 999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .modal-card {
+            background: #222;
+            width: 100%;
+            max-width: 400px;
+            padding: 25px;
+            border-radius: 20px;
+            border: 1px solid #444;
+            text-align: center;
+            max-height: 90dvh;
+            overflow-y: auto;
+        }
+        
+        .modal-title { margin-top: 0; color: white; }
+        
+        /* 开关控件 */
+        .setting-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .switch { position: relative; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; border-radius: 34px; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .4s; }
+        input:checked + .slider { background-color: #4CAF50; }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        /* 规则文本 */
+        .rules-text { text-align: left; font-size: 0.9rem; line-height: 1.6; color: #ddd; }
+        .rules-text strong { color: #fff; color: #4CAF50; } /* 强调色 */
+        .dev-credit { margin-top: 20px; padding-top: 15px; border-top: 1px solid #444; text-align: center; font-size: 0.8rem; color: #666; }
+
+        /* 答案揭晓 */
+        .reveal-box { display: flex; justify-content: center; gap: 10px; margin: 20px 0; background: #333; padding: 15px; border-radius: 15px; }
+
+        /* 辅助类 */
+        .hidden { display: none !important; }
+        .block { display: block !important; }
+        
+        @media (max-width: 360px) {
+            :root { --marble-size: 32px; }
+            .color-btn { width: 38px; height: 38px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="header">
+            <h1>猜颜色(by Arthur)</h1>
+            <button class="btn-text" onclick="app.showRules()">规则</button>
+        </div>
+
+        <div class="status-bar">
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background: var(--peg-exact)"></div> 全对</div>
+                <div class="legend-item"><div class="dot" style="background: var(--peg-partial)"></div> 半对</div>
+            </div>
+            <div id="playerDisplay" class="player-indicator hidden">当前：玩家 1</div>
+        </div>
+
+        <div id="board" class="game-board">
+            </div>
+
+        <div class="controls">
+            <div class="color-palette">
+                <button class="color-btn bg-blue" onclick="app.handleInput('blue')"></button>
+                <button class="color-btn bg-red" onclick="app.handleInput('red')"></button>
+                <button class="color-btn bg-green" onclick="app.handleInput('green')"></button>
+                <button class="color-btn bg-yellow" onclick="app.handleInput('yellow')"></button>
+                <button class="color-btn bg-pink" onclick="app.handleInput('pink')"></button>
+                <button class="color-btn bg-white" onclick="app.handleInput('white')"></button>
+            </div>
+            <div class="action-group">
+                <button class="btn-main btn-del" onclick="app.handleDelete()">回退</button>
+                <button class="btn-main btn-confirm" onclick="app.handleSubmit()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay">
+        <div class="modal-card">
+            
+            <div id="viewModeSelect">
+                <h2 class="modal-title">新游戏设置</h2>
+                <div class="setting-item">
+                    <span>允许颜色重复</span>
+                    <label class="switch">
+                        <input type="checkbox" id="duplicateToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <button class="btn-main btn-confirm" style="width:100%; margin-bottom:10px;" onclick="app.startGame('single')">单人模式 (8回合)</button>
+                <button class="btn-main btn-confirm" style="width:100%; background:#2196F3;" onclick="app.startGame('multi')">双人模式 (每人4回合)</button>
+            </div>
+
+            <div id="viewRules" class="hidden">
+                <h2 class="modal-title">游戏规则</h2>
+                <div class="rules-text">
+                    <p>目标：猜出电脑生成的4个颜色代码。</p>
+                    <p><strong>反馈说明：</strong></p>
+                    <ul>
+                        <li><strong style="color:var(--peg-exact)">橙点</strong>：颜色正确且位置正确。</li>
+                        <li><strong style="color:#fff">白点</strong>：颜色正确但位置错误。</li>
+                        <li><strong>无点</strong>：完全错误。</li>
+                    </ul>
+                    <p><strong>模式说明：</strong></p>
+                    <ul>
+                        <li>单人：8次机会。</li>
+                        <li>双人：两人轮流，每人4次。</li>
+                    </ul>
+                    <div class="dev-credit">开发者：ArthurZhu</div>
+                </div>
+                <button class="btn-main btn-confirm" style="width:100%; margin-top:15px;" onclick="app.closeModal()">关闭</button>
+            </div>
+
+            <div id="viewGameOver" class="hidden">
+                <h2 id="resultTitle" class="modal-title"></h2>
+                <p id="resultMsg"></p>
+                <p>正确答案：</p>
+                <div id="revealCode" class="reveal-box"></div>
+                <button class="btn-main btn-confirm" style="width:100%; margin-bottom:10px;" onclick="app.closeModal()">查看盘面</button>
+                <button class="btn-main btn-del" style="width:100%; background:#555;" onclick="app.resetToMenu()">返回主菜单</button>
+            </div>
+
+        </div>
+    </div>
+
+<script>
+/**
+ * 游戏逻辑控制器
+ */
+const app = (() => {
+    // --- 配置常量 ---
+    const CONFIG = {
+        colors: ['blue', 'red', 'green', 'yellow', 'pink', 'white'],
+        codeLength: 4,
+        attempts: { single: 8, multi: 4 } // 双人模式每人4次
+    };
+
+    // --- 状态管理 ---
+    let state = {
+        secretCode: [],
+        currentGuess: [],
+        currentRow: 0,
+        isGameOver: false,
+        mode: 'single', // 'single' | 'multi'
+        player: 1,
+        allowDuplicates: false // 默认状态改为 false
+    };
+
+    // --- DOM 元素缓存 ---
+    const els = {
+        board: document.getElementById('board'),
+        playerDisplay: document.getElementById('playerDisplay'),
+        modal: document.getElementById('modalOverlay'),
+        views: {
+            select: document.getElementById('viewModeSelect'),
+            rules: document.getElementById('viewRules'),
+            gameOver: document.getElementById('viewGameOver')
+        },
+        toggles: {
+            duplicate: document.getElementById('duplicateToggle')
+        }
+    };
+
+    // --- 初始化 ---
+    function init() {
+        // 默认显示模式选择
+        showModal('select');
+    }
+
+    // --- 核心逻辑 ---
+
+    function startGame(mode) {
+        state.mode = mode;
+        state.allowDuplicates = els.toggles.duplicate.checked;
+        state.secretCode = generateCode(state.allowDuplicates);
+        state.currentGuess = [];
+        state.currentRow = 0;
+        state.isGameOver = false;
+        state.player = 1;
+
+        // UI 重置
+        renderBoard();
+        updatePlayerInfo();
+        closeModal();
+    }
+
+    function generateCode(allowDupes) {
+        if (allowDupes) {
+            return Array.from({length: CONFIG.codeLength}, () => 
+                CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)]);
+        } else {
+            let pool = [...CONFIG.colors];
+            // 洗牌算法
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            return pool.slice(0, CONFIG.codeLength);
+        }
+    }
+
+    function renderBoard() {
+        els.board.innerHTML = '';
+        const totalRows = state.mode === 'single' ? CONFIG.attempts.single : (CONFIG.attempts.multi * 2);
+        
+        for (let i = 0; i < totalRows; i++) {
+            const row = document.createElement('div');
+            row.className = 'row';
+            row.id = `row-${i}`;
+            if (i === 0) row.classList.add('active'); // 激活第一行
+
+            // 左侧反馈
+            const feedback = document.createElement('div');
+            feedback.className = 'feedback-grid';
+            for(let j=0; j<4; j++) feedback.appendChild(document.createElement('div')).className = 'peg';
+            
+            // 右侧槽位
+            const slots = document.createElement('div');
+            slots.className = 'slots';
+            for(let k=0; k<CONFIG.codeLength; k++) slots.appendChild(document.createElement('div')).className = 'marble';
+
+            row.appendChild(feedback);
+            row.appendChild(slots);
+            els.board.appendChild(row);
+        }
+        
+        // 确保滚动到顶部
+        els.board.scrollTop = 0;
+    }
+
+    // --- 交互处理 ---
+
+    function handleInput(color) {
+        if (state.isGameOver || state.currentGuess.length >= CONFIG.codeLength) return;
+        
+        state.currentGuess.push(color);
+        updateRowVisuals();
+        vibrate(5);
+    }
+
+    function handleDelete() {
+        if (state.isGameOver || state.currentGuess.length === 0) return;
+        state.currentGuess.pop();
+        updateRowVisuals();
+        vibrate(5);
+    }
+
+    function updateRowVisuals() {
+        const row = document.getElementById(`row-${state.currentRow}`);
+        const marbles = row.querySelectorAll('.marble');
+        
+        marbles.forEach((m, idx) => {
+            m.className = 'marble'; // 重置
+            m.style.background = '';
+            
+            if (idx < state.currentGuess.length) {
+                const color = state.currentGuess[idx];
+                m.classList.add('filled');
+                m.classList.add(`bg-${color}`);
+            }
+        });
+    }
+
+    function handleSubmit() {
+        if (state.isGameOver) return;
+        if (state.currentGuess.length !== CONFIG.codeLength) {
+            // 错误动画：晃动当前行
+            const row = document.getElementById(`row-${state.currentRow}`);
+            row.style.transform = 'translateX(5px)';
+            setTimeout(() => row.style.transform = 'translateX(0)', 100);
+            return;
+        }
+
+        evaluateGuess();
+    }
+
+    function evaluateGuess() {
+        const guess = [...state.currentGuess];
+        const code = [...state.secretCode];
+        let exact = 0;
+        let partial = 0;
+
+        // 1. 计算全对
+        for (let i = 0; i < CONFIG.codeLength; i++) {
+            if (guess[i] === code[i]) {
+                exact++;
+                guess[i] = null;
+                code[i] = null;
+            }
+        }
+
+        // 2. 计算半对
+        for (let i = 0; i < CONFIG.codeLength; i++) {
+            if (guess[i] !== null) {
+                const idx = code.indexOf(guess[i]);
+                if (idx !== -1) {
+                    partial++;
+                    code[idx] = null; // 移除已匹配的
+                }
+            }
+        }
+
+        renderFeedback(exact, partial);
+
+        if (exact === CONFIG.codeLength) {
+            handleWin();
+        } else {
+            advanceTurn();
+        }
+    }
+
+    function renderFeedback(exact, partial) {
+        const row = document.getElementById(`row-${state.currentRow}`);
+        const pegs = row.querySelectorAll('.peg');
+        let idx = 0;
+        
+        for (let i=0; i<exact; i++) pegs[idx++].classList.add('exact');
+        for (let i=0; i<partial; i++) pegs[idx++].classList.add('partial');
+    }
+
+    function advanceTurn() {
+        const totalRows = state.mode === 'single' ? CONFIG.attempts.single : (CONFIG.attempts.multi * 2);
+        
+        // 移除旧的高亮
+        document.getElementById(`row-${state.currentRow}`).classList.remove('active');
+        
+        state.currentRow++;
+
+        if (state.currentRow >= totalRows) {
+            handleLoss();
+        } else {
+            state.currentGuess = [];
+            // 切换玩家
+            if (state.mode === 'multi') {
+                state.player = state.player === 1 ? 2 : 1;
+                updatePlayerInfo();
+            }
+            
+            // 高亮新行并滚动
+            const nextRow = document.getElementById(`row-${state.currentRow}`);
+            nextRow.classList.add('active');
+            nextRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function updatePlayerInfo() {
+        if (state.mode === 'multi') {
+            els.playerDisplay.classList.remove('hidden');
+            els.playerDisplay.innerText = `当前：玩家 ${state.player}`;
+        } else {
+            els.playerDisplay.classList.add('hidden');
+        }
+    }
+
+    // --- 胜负处理 ---
+
+    function handleWin() {
+        state.isGameOver = true;
+        let msg = state.mode === 'single' 
+            ? `恭喜！你在第 ${state.currentRow + 1} 次尝试中猜对了！`
+            : `玩家 ${state.player} 获胜！(第 ${state.currentRow + 1} 次尝试)`;
+        
+        showGameOver(true, msg);
+    }
+
+    function handleLoss() {
+        state.isGameOver = true;
+        showGameOver(false, "很遗憾，机会用光了。");
+    }
+
+    // --- 界面辅助 ---
+
+    function vibrate(ms) {
+        if (navigator.vibrate) navigator.vibrate(ms);
+    }
+
+    function showModal(viewId) {
+        els.modal.style.display = 'flex';
+        Object.values(els.views).forEach(el => el.classList.add('hidden'));
+        els.views[viewId].classList.remove('hidden');
+    }
+
+    function closeModal() {
+        els.modal.style.display = 'none';
+    }
+
+    function showGameOver(isWin, msg) {
+        const title = document.getElementById('resultTitle');
+        title.innerText = isWin ? "🎉 胜利！" : "💔 游戏结束";
+        title.style.color = isWin ? "#4CAF50" : "#d32f2f";
+        document.getElementById('resultMsg').innerText = msg;
+
+        // 显示答案
+        const container = document.getElementById('revealCode');
+        container.innerHTML = '';
+        state.secretCode.forEach(color => {
+            const div = document.createElement('div');
+            div.className = `marble filled bg-${color}`;
+            container.appendChild(div);
+        });
+
+        showModal('gameOver');
+    }
+
+    function resetToMenu() {
+        showModal('select');
+    }
+
+    // --- 导出接口 ---
+    return {
+        init,
+        startGame,
+        handleInput,
+        handleDelete,
+        handleSubmit,
+        showRules: () => showModal('rules'),
+        closeModal,
+        resetToMenu
+    };
+})();
+
+// 启动应用
+window.onload = app.init;
+</script>
+</body>
+</html>

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>双陆棋（by Arthur）</title>
+    <style>
+        :root {
+            --wood-dark: #3e2723; --wood-light: #5d4037;
+            --felt-bg: #2b5640; 
+            --point-1: #e0e0e0; --point-2: #bf360c;
+            --p1-main: #d32f2f; --p1-light: #ff6659; --p1-dark: #9a0007;
+            --p2-main: #1976d2; --p2-light: #63a4ff; --p2-dark: #004ba0;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #121212; margin: 0;
+            display: flex; flex-direction: column; align-items: center;
+            height: 100vh; color: #fff; overflow: hidden; user-select: none;
+        }
+
+        /* 顶部栏 - 固定高度 */
+        #header-bar {
+            width: 100%; height: 50px; background: #251814;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 15px; box-sizing: border-box; border-bottom: 2px solid #5d4037;
+            z-index: 500; position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        #header-bar h1 { font-size: 15px; margin: 0; color: #deb887; font-weight: bold; }
+        #status-text { font-size: 13px; color: #ddd; }
+        .btn-text { 
+            background: rgba(255,255,255,0.1); border: 1px solid #777; 
+            color: #ccc; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;
+        }
+
+        /* 游戏桌容器 - 桌面端默认 */
+        #game-table {
+            position: relative; 
+            flex: 1; 
+            width: 100%; max-width: 1024px;
+            margin: 10px auto;
+            background: repeating-linear-gradient(45deg, var(--wood-dark), var(--wood-dark) 10px, var(--wood-light) 10px, var(--wood-light) 20px);
+            border-radius: 12px; padding: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            display: flex; box-sizing: border-box;
+            transform-origin: center center;
+        }
+
+        /* ---------------------------------------------------------
+           ★ 核心优化：手机竖屏适配 ★
+           --------------------------------------------------------- */
+        @media (max-width: 768px) {
+            #header-bar { position: fixed; top: 0; width: 100%; }
+            
+            #game-table {
+                position: absolute;
+                /* 1. 下移中心点：避开顶部Header遮挡 (50% + 25px偏移) */
+                top: calc(50% + 30px); 
+                left: 50%;
+                
+                /* 2. 极致拉长：利用全屏高度减去头尾留白 */
+                width: calc(100vh - 100px); 
+                
+                /* 3. 宽度填满 */
+                height: 96vw;
+                
+                /* 4. 旋转90度 */
+                transform: translate(-50%, -50%) rotate(90deg);
+                margin: 0;
+                border-radius: 6px;
+                padding: 6px;
+            }
+
+            /* 按钮反转 */
+            #roll-btn {
+                transform: rotate(-90deg);
+                box-shadow: -5px 5px 20px rgba(0,0,0,0.6) !important;
+            }
+            
+            .modal { z-index: 99999; }
+
+            /* Bar区缩小：40px */
+            #bar-area { min-width: 40px !important; width: 40px !important; }
+
+            /* 三角形重算：基于新的超长棋盘 */
+            .point::before {
+                /* 棋盘宽 (100vh-100px) / 24个格 - 1px缝隙 */
+                border-left-width: calc(((100vh - 100px) / 24) - 1px) !important;
+                border-right-width: calc(((100vh - 100px) / 24) - 1px) !important;
+                /* 高度拉长 */
+                border-top-width: 38vw !important; 
+                border-bottom-width: 38vw !important; 
+            }
+            
+            .checker { max-width: 34px !important; }
+            .die { width: 32px; height: 32px; }
+        }
+
+        /* 棋盘面 */
+        #board-surface {
+            flex: 1; display: flex; background-color: var(--felt-bg);
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+            border: 4px solid #1a100c; border-radius: 4px;
+            position: relative; box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
+        }
+
+        .bg-arrow {
+            position: absolute; font-size: 80px; opacity: 0.05; color: #fff;
+            pointer-events: none; font-weight: 900; z-index: 0;
+            width: 40%; height: 40%; display: flex; align-items: center; justify-content: center;
+        }
+        #arrow-tr { top: 10%; right: 10%; transform: rotate(180deg); }
+        #arrow-tl { top: 10%; left: 10%; transform: rotate(180deg); }
+        #arrow-bl { bottom: 10%; left: 10%; }
+        #arrow-br { bottom: 10%; right: 10%; }
+
+        .board-half { flex: 1; display: flex; flex-direction: column; z-index: 1; }
+        .row { flex: 1; display: flex; position: relative; }
+        .row.top { border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .row.bottom { border-top: 1px solid rgba(255,255,255,0.08); }
+
+        /* Points */
+        .point {
+            flex: 1; height: 100%; position: relative;
+            display: flex; flex-direction: column; align-items: center; cursor: pointer;
+            min-width: 0; /* 防止Flex溢出 */
+        }
+        .row.bottom .point { justify-content: flex-end; }
+        
+        /* 桌面端默认 */
+        .point::before {
+            content: ''; position: absolute; width: 0; height: 0;
+            border-left: 28px solid transparent; border-right: 28px solid transparent;
+            z-index: 0; pointer-events: none;
+        }
+        
+        .row.top .point:nth-child(odd)::before { border-top: 36vh solid var(--point-2); opacity: 0.85; }
+        .row.top .point:nth-child(even)::before { border-top: 36vh solid var(--point-1); opacity: 0.85; }
+        .row.bottom .point:nth-child(odd)::before { border-bottom: 36vh solid var(--point-1); opacity: 0.85; }
+        .row.bottom .point:nth-child(even)::before { border-bottom: 36vh solid var(--point-2); opacity: 0.85; }
+
+        /* 高亮 - 层级20覆盖棋子 */
+        .point.highlight::after {
+            content: ''; position: absolute; inset: 0;
+            background: rgba(255, 215, 0, 0.4); z-index: 20; pointer-events: none;
+        }
+        .row.top .point.highlight::after { clip-path: polygon(50% 100%, 0 0, 100% 0); }
+        .row.bottom .point.highlight::after { clip-path: polygon(50% 0, 0 100%, 100% 100%); }
+
+        /* Bar - 桌面默认宽度，手机覆盖为40px */
+        #bar-area {
+            width: 70px; min-width: 40px; background: #231410;
+            border-left: 3px solid #150b09; border-right: 3px solid #150b09;
+            display: flex; flex-direction: column; box-shadow: inset 0 0 20px rgba(0,0,0,0.9); z-index: 5;
+        }
+        .bar-slot {
+            flex: 1; width: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; position: relative;
+        }
+        .bar-slot.top { border-bottom: 1px solid #333; }
+        .bar-slot.highlight::after {
+            content: ''; position: absolute; inset: 2px;
+            border: 2px solid gold; border-radius: 4px; box-shadow: 0 0 15px gold; pointer-events: none; z-index: 20;
+        }
+
+        /* Checker */
+        .checker {
+            width: 84%; aspect-ratio: 1; max-width: 48px; border-radius: 50%;
+            margin: -4px 0; z-index: 10; position: relative;
+            box-shadow: 0 4px 5px rgba(0,0,0,0.6);
+        }
+        .bar-slot .checker { width: 70%; margin: -10px 0; max-width: 40px; }
+
+        .checker.p1 { background: radial-gradient(circle at 30% 30%, var(--p1-light), var(--p1-main), var(--p1-dark)); border: 1px solid #4a0000; }
+        .checker.p2 { background: radial-gradient(circle at 30% 30%, var(--p2-light), var(--p2-main), var(--p2-dark)); border: 1px solid #001b50; }
+        .checker::after {
+            content: ''; position: absolute; top: 15%; left: 15%; right: 15%; bottom: 15%;
+            border-radius: 50%; border: 2px solid rgba(255,255,255,0.15);
+        }
+
+        /* Off Board */
+        #off-board {
+            width: 50px; background: #2c1e1a; border-left: 5px solid #1a100c;
+            display: flex; flex-direction: column; padding: 5px;
+        }
+        .off-box {
+            flex: 1; background: rgba(0,0,0,0.2); border-radius: 6px; margin: 5px 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+            border: 1px solid rgba(255,255,255,0.05); cursor: pointer;
+        }
+        .off-box.top { justify-content: flex-start; }
+        .off-box.highlight { box-shadow: 0 0 20px gold; border: 2px solid gold; background: rgba(255,215,0,0.15); z-index: 30; }
+
+        /* Anim & Dice */
+        .anim-piece { position: fixed; z-index: 9999; pointer-events: none; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+        #dice-layer { position: absolute; inset: 0; pointer-events: none; z-index: 200; overflow: hidden; }
+        .die {
+            position: absolute; width: 44px; height: 44px;
+            background: #fff; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            display: grid; padding: 4px; box-sizing: border-box;
+            grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
+        }
+        .pip { background: #000; border-radius: 50%; width: 8px; height: 8px; align-self: center; justify-self: center; }
+        
+        #roll-btn-wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 300; }
+        #roll-btn {
+            background: linear-gradient(135deg, #fbc02d, #f57f17); color: #3e2723; border: 2px solid #fff;
+            padding: 12px 35px; font-size: 18px; font-weight: bold; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.6); transition: transform 0.1s;
+        }
+        #roll-btn:active { transform: scale(0.95); }
+
+        /* Modals */
+        .modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: none; justify-content: center; align-items: center; 
+            z-index: 20000; backdrop-filter: blur(4px);
+        }
+        .modal-box {
+            background: #f5f5f5; color: #333; border-radius: 12px; max-width: 550px; width: 90%;
+            max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+        }
+        .modal-header { padding: 15px; background: #e0e0e0; border-bottom: 1px solid #ccc; text-align: center; }
+        .modal-header h2 { margin: 0; color: #b71c1c; font-size: 1.2rem; }
+        .modal-body { padding: 20px; overflow-y: auto; line-height: 1.6; font-size: 14px; }
+        .modal-body h3 { border-left: 4px solid #b71c1c; padding-left: 10px; margin: 15px 0 5px 0; color: #444; }
+        .modal-footer { padding: 15px; background: #eee; border-top: 1px solid #ddd; text-align: center; }
+        .btn-primary {
+            background: #d32f2f; color: #fff; border: none; padding: 12px 0; width: 100%;
+            border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+        select { width: 100%; padding: 10px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div id="header-bar">
+    <h1>双陆棋 (by Arthur)</h1>
+    <span id="status-text">准备就绪</span>
+    <button class="btn-text" onclick="showRules()">游戏规则</button>
+</div>
+
+<div id="game-table">
+    <div id="board-surface">
+        <div id="arrow-tl" class="bg-arrow">➔</div>
+        <div id="arrow-tr" class="bg-arrow">➔</div>
+        <div id="arrow-bl" class="bg-arrow">➔</div>
+        <div id="arrow-br" class="bg-arrow">➔</div>
+
+        <div class="board-half">
+            <div class="row top" id="q-tl"></div>
+            <div class="row bottom" id="q-bl"></div>
+        </div>
+
+        <div id="bar-area">
+            <div id="bar-p1" class="bar-slot top"></div>
+            <div id="bar-p2" class="bar-slot bottom"></div>
+        </div>
+
+        <div class="board-half">
+            <div class="row top" id="q-tr"></div>
+            <div class="row bottom" id="q-br"></div>
+        </div>
+
+        <div id="dice-layer"></div>
+    </div>
+
+    <div id="off-board">
+        <div id="off-p2" class="off-box top" onclick="game.clickOff(2)"></div>
+        <div id="off-p1" class="off-box bottom" onclick="game.clickOff(1)"></div>
+    </div>
+
+    <div id="roll-btn-wrapper">
+        <button id="roll-btn" onclick="game.rollDice()">掷骰子</button>
+    </div>
+</div>
+
+<div id="setup-modal" class="modal" style="display:flex;">
+    <div class="modal-box" style="max-width: 400px;">
+        <div class="modal-header"><h2>新游戏设置</h2></div>
+        <div class="modal-body">
+            <label>对战模式：</label>
+            <select id="mode-sel">
+                <option value="pve">挑战电脑 (PvE)</option>
+                <option value="pvp">双人同屏 (PvP)</option>
+            </select>
+            <label>电脑难度：</label>
+            <select id="diff-sel">
+                <option value="1">简单 (随机)</option>
+                <option value="2" selected>中等 (进取)</option>
+                <option value="3">困难 (策略)</option>
+            </select>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-primary" onclick="startGame()">开始对战</button>
+        </div>
+    </div>
+</div>
+
+<div id="rules-modal" class="modal">
+    <div class="modal-box">
+        <div class="modal-header"><h2>游戏规则手册</h2></div>
+        <div class="modal-body">
+            <p>双陆棋（Backgammon）是掷骰子移动棋子的竞速游戏。</p>
+            <h3>1. 目标</h3>
+            <p><strong>红方 (P1)</strong> 逆时针移动 (24➔1) 到内盘，然后【离场】。<br>
+               <strong>蓝方 (P2)</strong> 顺时针移动 (1➔24) 到内盘，然后【离场】。</p>
+            <h3>2. 移动与双倍</h3>
+            <p>掷出两个数字，分别移动两枚棋子，或累加移动一枚。若掷出对子（如3-3），点数翻倍（可走4次3步）。</p>
+            <h3>3. 攻击（吃子）</h3>
+            <p>落点若只有<strong>对方1枚棋子</strong>，可将其【吃掉】送入中间Bar区。被吃方必须先掷骰子回场，才能走其他棋子。</p>
+            <h3>4. 离场 (Bear Off)</h3>
+            <p>当所有15枚棋子都进入己方内盘时，可按点数将棋子移出棋盘。</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-primary" onclick="document.getElementById('rules-modal').style.display='none'">我明白了</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function getPipHTML(val) {
+        const map = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
+        let h=''; for(let i=0;i<9;i++) h+=map[val].includes(i)?'<div class="pip"></div>':'<div></div>';
+        return h;
+    }
+
+    class Backgammon {
+        constructor() {
+            this.state = Array(26).fill(null).map(()=>[]);
+            this.p1Bar=[]; this.p2Bar=[]; this.p1Off=[]; this.p2Off=[];
+            this.turn=1; this.dice=[]; this.movesLeft=[];
+            this.selected=null; this.animating=false;
+            this.initBoard();
+        }
+
+        initBoard() {
+            const pt = (i) => `<div class="point" id="pt-${i}" onclick="game.clickPt(${i})"></div>`;
+            let h=''; for(let i=13;i<=18;i++) h+=pt(i); document.getElementById('q-tl').innerHTML=h;
+            h=''; for(let i=19;i<=24;i++) h+=pt(i); document.getElementById('q-tr').innerHTML=h;
+            h=''; for(let i=12;i>=7;i--) h+=pt(i); document.getElementById('q-bl').innerHTML=h;
+            h=''; for(let i=6;i>=1;i--) h+=pt(i); document.getElementById('q-br').innerHTML=h;
+            document.getElementById('bar-p1').onclick=()=>this.clickBar(1);
+            document.getElementById('bar-p2').onclick=()=>this.clickBar(2);
+        }
+
+        newGame(m,d) {
+            this.mode=m; this.diff=d;
+            this.state=Array(26).fill(null).map(()=>[]);
+            this.p1Bar=[]; this.p2Bar=[]; this.p1Off=[]; this.p2Off=[];
+            this.add(24,1,2); this.add(13,1,5); this.add(8,1,3); this.add(6,1,5);
+            this.add(1,2,2); this.add(12,2,5); this.add(17,2,3); this.add(19,2,5);
+            this.turn=1; this.render(); this.startTurn();
+        }
+
+        add(idx,p,c) { for(let i=0;i<c;i++) this.state[idx].push(p); }
+
+        startTurn() {
+            this.dice=[]; this.movesLeft=[];
+            this.setStatus(`${this.turn===1?'红方':'蓝方'} 请掷骰子`);
+            document.getElementById('dice-layer').innerHTML='';
+            if(this.mode==='pve'&&this.turn===2) {
+                document.getElementById('roll-btn').style.display='none';
+                setTimeout(()=>this.rollDice(), 1000);
+            } else {
+                document.getElementById('roll-btn').style.display='block';
+            }
+        }
+
+        rollDice() {
+            if(this.animating) return;
+            document.getElementById('roll-btn').style.display='none';
+            const d1=Math.floor(Math.random()*6)+1;
+            const d2=Math.floor(Math.random()*6)+1;
+            this.dice=[d1,d2];
+            this.movesLeft=(d1===d2)?[d1,d1,d1,d1]:[d1,d2];
+            this.throwDiceVisual(d1,d2);
+            setTimeout(()=>{
+                this.setStatus(`点数: ${d1}, ${d2}`);
+                // 掷骰子后立即检查是否有步数
+                this.checkGameState();
+            }, 800);
+        }
+
+        // 核心逻辑修复：每一步后（包括刚掷完骰子）都检查状态
+        checkGameState() {
+             if(!this.hasMoves()) {
+                setTimeout(()=>{ 
+                    alert("无路可走，跳过回合！"); 
+                    this.switchTurn(); 
+                }, 800);
+            } else if(this.mode==='pve'&&this.turn===2) {
+                setTimeout(()=>this.ai(), 1000);
+            }
+        }
+
+        throwDiceVisual(v1,v2) {
+            const l=document.getElementById('dice-layer'); l.innerHTML='';
+            const add=(v,left)=>{
+                const el=document.createElement('div'); el.className='die'; el.innerHTML=getPipHTML(v);
+                el.style.left=(left?15:65)+Math.random()*15+'%';
+                el.style.top=(35+Math.random()*30)+'%';
+                el.style.transform=`scale(0) rotate(${Math.random()*360}deg)`;
+                l.appendChild(el);
+                setTimeout(()=>{ 
+                    el.style.opacity=1; 
+                    el.style.transform=`scale(1) rotate(${Math.random()*20-10}deg)`; 
+                    el.style.transition='all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; 
+                }, 50);
+            };
+            add(v1,true); setTimeout(()=>add(v2,false),150);
+        }
+
+        clickPt(i) {
+            if(this.animating || (this.mode==='pve'&&this.turn===2)) return;
+            if(this.selected!==null) {
+                if(this.tryMove(this.selected,i)) return;
+                this.selected=null; this.render();
+            }
+            if(this.turn===1&&this.p1Bar.length>0) return this.clickBar(1);
+            if(this.turn===2&&this.p2Bar.length>0) return this.clickBar(2);
+            if(this.state[i].length>0 && this.state[i][0]===this.turn) {
+                this.selected=i; this.highlight(i);
+            }
+        }
+
+        clickOff(p) {
+            if(this.animating || (this.mode==='pve'&&this.turn===2)) return;
+            if(this.turn !== p) return;
+            if(this.selected!==null) {
+                const target = (p===1) ? 0 : 25;
+                if(this.tryMove(this.selected, target)) return;
+                this.selected=null; this.render();
+            }
+        }
+
+        clickBar(p) {
+            if(this.turn!==p) return;
+            const b=p===1?this.p1Bar:this.p2Bar;
+            if(b.length===0) return;
+            this.selected='bar'; this.highlight('bar');
+        }
+
+        highlight(src) {
+            this.render();
+            if(src==='bar') document.getElementById(this.turn===1?'bar-p1':'bar-p2').classList.add('highlight');
+            else document.getElementById('pt-'+src).classList.add('highlight');
+            
+            this.getMoves(src).forEach(d=>{
+                if(d<=0) document.getElementById('off-p1').classList.add('highlight');
+                else if(d>=25) document.getElementById('off-p2').classList.add('highlight');
+                else document.getElementById('pt-'+d).classList.add('highlight');
+            });
+        }
+
+        getMoves(src) {
+            let res=[]; 
+            [...new Set(this.movesLeft)].forEach(d=>{
+                let t = (this.turn===1) ? (src==='bar'?25:src)-d : (src==='bar'?0:src)+d;
+                if(this.check(src,t)) res.push(t);
+            });
+            return res;
+        }
+
+        check(src,dst) {
+            if(this.turn===1 && dst<=0) {
+                if(!this.canBear(1)) return false;
+                let need = (src==='bar'?25:src); 
+                if(this.movesLeft.includes(need)) return true; 
+                if(dst<0 && this.isHigh(src)) return true; 
+                return false;
+            }
+            if(this.turn===2 && dst>=25) {
+                if(!this.canBear(2)) return false;
+                let need = 25-(src==='bar'?0:src);
+                if(this.movesLeft.includes(need)) return true;
+                if(dst>25 && this.isHigh(src)) return true;
+                return false;
+            }
+            const s=this.state[dst];
+            if(s && s.length>1 && s[0]!==this.turn) return false;
+            return true;
+        }
+
+        canBear(p) {
+            if(p===1) return this.p1Bar.length===0 && !this.state.slice(7,25).some(s=>s.includes(1));
+            return this.p2Bar.length===0 && !this.state.slice(1,19).some(s=>s.includes(2));
+        }
+
+        isHigh(src) {
+            if(src==='bar') return false;
+            if(this.turn===1) { for(let i=src+1;i<=6;i++) if(this.state[i].includes(1)) return false; } 
+            else { for(let i=src-1;i>=19;i--) if(this.state[i].includes(2)) return false; }
+            return true;
+        }
+
+        tryMove(src,dst) {
+            if(!this.check(src,dst)) return false;
+            
+            let dist = (this.turn===1) ? (src==='bar'?25:src)-(dst<=0?0:dst) : (dst>=25?25:dst)-(src==='bar'?0:src);
+            let idx = this.movesLeft.indexOf(dist);
+            if(idx===-1 && ((this.turn===1 && dst<=0)||(this.turn===2 && dst>=25))) {
+                idx=this.movesLeft.findIndex(d=>d>dist);
+            }
+            if(idx===-1) return false;
+
+            this.movesLeft.splice(idx,1);
+            this.animating=true; this.selected=null; this.render();
+            
+            this.anim(src,dst,()=>{
+                this.exec(src,dst); 
+                this.render(); this.animating=false;
+                if(this.p1Off.length===15) return this.win(1);
+                if(this.p2Off.length===15) return this.win(2);
+                
+                if(this.movesLeft.length===0) {
+                     setTimeout(()=>this.switchTurn(), 500);
+                } else {
+                    // 必须再次检查，防止出现剩余步数无法走导致卡死的情况
+                    this.checkGameState();
+                }
+            });
+            return true;
+        }
+
+        async anim(src,dst,cb) {
+            let el;
+            if(src==='bar') el=document.getElementById(this.turn===1?'bar-p1':'bar-p2').lastElementChild;
+            else el=document.getElementById('pt-'+src).lastElementChild;
+            if(!el) { cb(); return; }
+
+            let path=[];
+            let s=(src==='bar')?(this.turn===1?25:0):src;
+            let e=(dst<=0)?0:(dst>=25?25:dst);
+            let dir=s>e?-1:1;
+            if(Math.abs(s-e)>1) path.push(s+dir);
+            if(Math.abs(s-e)>4) path.push(s+Math.floor((e-s)/2));
+            path.push(e);
+
+            const r=el.getBoundingClientRect();
+            const c=el.cloneNode(true);
+            c.classList.add('anim-piece');
+            c.style.width=r.width+'px'; c.style.height=r.height+'px';
+            c.style.left=r.left+'px'; c.style.top=r.top+'px';
+            document.body.appendChild(c);
+            el.style.opacity=0;
+
+            for(let p of path) {
+                let tel;
+                if(p===0) tel=document.getElementById('off-p1');
+                else if(p===25) tel=document.getElementById('off-p2');
+                else tel=document.getElementById('pt-'+p);
+                if(!tel) continue;
+                
+                const tr=tel.getBoundingClientRect();
+                const tx=tr.left+tr.width/2-r.width/2;
+                const ty=tr.top+tr.height/2-r.height/2;
+
+                await c.animate([
+                    {transform:`translate(${c.dataset.x||0}px,${c.dataset.y||0}px) scale(1)`},
+                    {transform:`translate(${tx-r.left}px,${ty-r.top}px) scale(1.15)`, offset:0.6},
+                    {transform:`translate(${tx-r.left}px,${ty-r.top}px) scale(1)`}
+                ], {duration: 180, easing: 'ease-in-out'}).finished;
+
+                c.style.transform=`translate(${tx-r.left}px,${ty-r.top}px)`;
+                c.dataset.x=tx-r.left; c.dataset.y=ty-r.top;
+            }
+            c.remove(); cb();
+        }
+
+        exec(src,dst) {
+            if(src==='bar') { if(this.turn===1) this.p1Bar.pop(); else this.p2Bar.pop(); }
+            else this.state[src].pop();
+
+            if(dst>0 && dst<25) {
+                if(this.state[dst].length===1 && this.state[dst][0]!==this.turn) {
+                    let hit=this.state[dst].pop();
+                    if(hit===1) this.p1Bar.push(1); else this.p2Bar.push(2);
+                }
+                this.state[dst].push(this.turn);
+            } else {
+                if(this.turn===1) this.p1Off.push(1); else this.p2Off.push(2);
+            }
+        }
+
+        render() {
+            for(let i=1;i<=24;i++) {
+                const el=document.getElementById('pt-'+i); el.innerHTML=''; el.className='point';
+                this.state[i].slice(0,10).forEach(p=>{ el.innerHTML+=`<div class="checker p${p}"></div>`; });
+            }
+            const b1=document.getElementById('bar-p1'); b1.innerHTML=''; b1.className='bar-slot top';
+            this.p1Bar.forEach(()=>b1.innerHTML+=`<div class="checker p1"></div>`);
+            const b2=document.getElementById('bar-p2'); b2.innerHTML=''; b2.className='bar-slot bottom';
+            this.p2Bar.forEach(()=>b2.innerHTML+=`<div class="checker p2"></div>`);
+
+            const o1=document.getElementById('off-p1'); o1.innerHTML=''; o1.className='off-box bottom';
+            this.p1Off.forEach(()=>o1.innerHTML+=`<div class="checker p1" style="height:10px;width:90%;margin:1px;border-radius:2px;"></div>`);
+            const o2=document.getElementById('off-p2'); o2.innerHTML=''; o2.className='off-box top';
+            this.p2Off.forEach(()=>o2.innerHTML+=`<div class="checker p2" style="height:10px;width:90%;margin:1px;border-radius:2px;"></div>`);
+        }
+
+        hasMoves() {
+            if(this.turn===1&&this.p1Bar.length>0) return this.getMoves('bar').length>0;
+            if(this.turn===2&&this.p2Bar.length>0) return this.getMoves('bar').length>0;
+            for(let i=1;i<=24;i++) if(this.state[i].includes(this.turn) && this.getMoves(i).length>0) return true;
+            return false;
+        }
+
+        switchTurn() { this.turn=this.turn===1?2:1; this.startTurn(); }
+        setStatus(m) { document.getElementById('status-text').innerText=m; }
+        win(w) { alert(w===1?"红方获胜！":"蓝方获胜！"); location.reload(); }
+
+        ai() {
+            if(this.turn!==2) return;
+            let m=[];
+            let srcs=this.p2Bar.length>0?['bar']:[];
+            if(srcs.length===0) for(let i=1;i<=24;i++) if(this.state[i].includes(2)) srcs.push(i);
+            srcs.forEach(s=>this.getMoves(s).forEach(d=>m.push({s,d,sc:0})));
+            if(m.length===0) return; 
+
+            m.forEach(x=>{
+                if(x.d<25&&x.d>0&&this.state[x.d].length===1&&this.state[x.d][0]===1) x.sc+=50;
+                if(x.d===25) x.sc+=100;
+                if(x.d>0&&x.d<25&&this.state[x.d].length===1&&this.state[x.d][0]===2) x.sc+=20;
+                let left = (x.s==='bar'?this.p2Bar.length:this.state[x.s].length) - 1;
+                if(left===1) x.sc-=15; 
+            });
+            m.sort((a,b)=>b.sc-a.sc);
+            let pick=m[0];
+            if(this.diff==1) pick=m[Math.floor(Math.random()*m.length)];
+            else if(this.diff==2 && m.length>1) pick = Math.random()>0.3 ? m[0] : m[1];
+            this.tryMove(pick.s,pick.d);
+        }
+    }
+
+    const game = new Backgammon();
+    function startGame() { 
+        document.getElementById('setup-modal').style.display='none';
+        game.newGame(document.getElementById('mode-sel').value, document.getElementById('diff-sel').value);
+    }
+    function showRules() { document.getElementById('rules-modal').style.display='flex'; }
+</script>
+</body>
+</html>
