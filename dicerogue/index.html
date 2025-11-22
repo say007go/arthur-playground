@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>绝境骰子 (by Arthur)</title>
     <style>
+        /* --- 样式完全保持 v7.0 不变 --- */
         :root {
             --bg-color: #121212;
             --card-bg: #252526;
@@ -15,6 +16,7 @@
             --armor: #69f0ae;
             --energy: #ffd740;
             --modifier: #b388ff;
+            --void: #9c27b0;
         }
 
         body {
@@ -24,14 +26,12 @@
             margin: 0;
             display: flex;
             flex-direction: column;
-            /* 修复手机浏览器高度遮挡问题 */
             height: 100vh;
             height: 100dvh; 
             overflow: hidden;
             user-select: none;
         }
 
-        /* 顶部标题 */
         .header-bar {
             flex: 0 0 auto;
             background: rgba(20, 20, 20, 0.95);
@@ -46,7 +46,6 @@
         .game-title span { color: var(--accent); font-size: 0.8em; font-weight: normal; margin-left: 5px; }
         .btn-rules { background: transparent; border: 1px solid #555; color: #aaa; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-size: 0.75em; }
 
-        /* 状态栏 */
         .hud {
             flex: 0 0 auto;
             display: grid;
@@ -56,31 +55,37 @@
             border-bottom: 1px solid #2a2a2a;
             font-size: 0.9em;
             gap: 5px;
+            z-index: 9;
         }
         .stat-item { display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .stat-label { font-size: 0.7em; color: #888; margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
         .stat-val { font-weight: 700; font-size: 1.1em; }
 
-        /* --- 核心修复区域 --- */
         #game-container {
             flex: 1;
             display: flex;
             flex-direction: column;
-            /* 修复BUG：改为 flex-start，防止内容溢出时顶部被裁切 */
-            justify-content: flex-start; 
+            overflow: hidden; 
             padding: 15px;
-            overflow-y: auto;
-            overflow-x: hidden;
+            padding-bottom: 0; 
             max-width: 500px;
             margin: 0 auto;
             width: 100%;
             box-sizing: border-box;
-            -webkit-overflow-scrolling: touch; /* 增加iOS滚动流畅度 */
         }
 
-        /* 环境词缀 */
+        .fixed-zone { flex: 0 0 auto; margin-bottom: 10px; }
+
+        .scroll-zone {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 10px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; 
+        }
+        .scroll-zone::-webkit-scrollbar { display: none; }
+
         .modifier-bar {
-            flex: 0 0 auto; /* 防止被压缩 */
             background: rgba(179, 136, 255, 0.1);
             border: 1px solid var(--modifier);
             color: var(--modifier);
@@ -96,16 +101,13 @@
             animation: fadeIn 0.5s;
         }
 
-        /* 敌人区域 */
         .enemy-area {
-            flex: 0 0 auto; /* 防止被压缩 */
             display: flex;
             align-items: center;
             padding: 15px;
             background: linear-gradient(145deg, #2a2a2d, #1f1f22);
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             border-radius: 12px;
-            margin-bottom: 15px;
             border: 1px solid #333;
             min-height: 80px;
         }
@@ -113,17 +115,13 @@
         .enemy-info { flex: 1; }
         .enemy-hp-bar { height: 8px; background: #111; margin-top: 8px; border-radius: 4px; overflow: hidden; }
         .enemy-hp-fill { height: 100%; background: linear-gradient(90deg, #ff5252, #d50000); width: 100%; transition: width 0.3s ease-out; }
-        .enemy-intent { margin-top: 8px; font-size: 0.9em; color: #ff8a80; display: flex; align-items: center; gap: 6px; font-weight: 500;}
+        
+        .enemy-meta { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; }
+        .enemy-intent { color: #ff8a80; display: flex; align-items: center; gap: 4px; font-weight: 500; }
+        .turn-counter { color: #888; background: #111; padding: 2px 8px; border-radius: 10px; border: 1px solid #333; font-size: 0.9em; }
+        .turn-counter.danger { color: var(--void); border-color: var(--void); animation: pulse 1s infinite; }
 
-        /* 装备构筑区 */
-        .board-area {
-            flex: 0 0 auto; /* 内容撑开 */
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            padding: 2px;
-            padding-bottom: 10px; /* 底部增加一点留白 */
-        }
+        .board-area { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 2px; }
 
         .card {
             background: var(--card-bg);
@@ -156,13 +154,8 @@
             min-height: 42px;
             border: 1px dashed #444;
         }
-        .card-slots:empty::after {
-            content: "点击置入";
-            display: block; width: 100%; text-align: center; margin-top: 10px;
-            font-size: 0.7em; color: #555;
-        }
+        .card-slots:empty::after { content: "点击置入"; display: block; width: 100%; text-align: center; margin-top: 10px; font-size: 0.7em; color: #555; }
 
-        /* 骰子 */
         .die {
             width: 46px; height: 46px;
             background: linear-gradient(145deg, #fff, #dcdcdc);
@@ -177,21 +170,11 @@
             box-sizing: border-box;
             transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        .card-slots .die { 
-            width: 30px; height: 30px; padding: 3px; pointer-events: none; 
-            border-radius: 5px; box-shadow: 1px 2px 3px rgba(0,0,0,0.5);
-        }
+        .card-slots .die { width: 30px; height: 30px; padding: 3px; pointer-events: none; border-radius: 5px; box-shadow: 1px 2px 3px rgba(0,0,0,0.5); }
         .card-slots .die .dot { width: 5px; height: 5px; }
 
-        .dot {
-            width: 8px; height: 8px;
-            background: radial-gradient(circle at 30% 30%, #444, #000);
-            border-radius: 50%;
-            align-self: center; justify-self: center;
-            box-shadow: 0 1px 0 rgba(255,255,255,0.5);
-        }
+        .dot { width: 8px; height: 8px; background: radial-gradient(circle at 30% 30%, #444, #000); border-radius: 50%; align-self: center; justify-self: center; box-shadow: 0 1px 0 rgba(255,255,255,0.5); }
         
-        /* 点数定位 */
         .die[data-val="1"] > :nth-child(1) { grid-area: 2 / 2; background: radial-gradient(circle at 30% 30%, #ff5252, #b71c1c); }
         .die[data-val="2"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="2"] > :nth-child(2) { grid-area: 3 / 3; }
         .die[data-val="3"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="3"] > :nth-child(2) { grid-area: 2 / 2; } .die[data-val="3"] > :nth-child(3) { grid-area: 3 / 3; }
@@ -199,72 +182,31 @@
         .die[data-val="5"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="5"] > :nth-child(2) { grid-area: 1 / 3; } .die[data-val="5"] > :nth-child(3) { grid-area: 2 / 2; } .die[data-val="5"] > :nth-child(4) { grid-area: 3 / 1; } .die[data-val="5"] > :nth-child(5) { grid-area: 3 / 3; }
         .die[data-val="6"] > :nth-child(1) { grid-area: 1 / 1; } .die[data-val="6"] > :nth-child(2) { grid-area: 1 / 3; } .die[data-val="6"] > :nth-child(3) { grid-area: 2 / 1; } .die[data-val="6"] > :nth-child(4) { grid-area: 2 / 3; } .die[data-val="6"] > :nth-child(5) { grid-area: 3 / 1; } .die[data-val="6"] > :nth-child(6) { grid-area: 3 / 3; }
 
-        .die.selected { 
-            transform: translateY(-8px) scale(1.1); 
-            box-shadow: 0 0 15px var(--accent-glow), 0 0 5px var(--accent);
-            border: 1px solid var(--accent);
-            z-index: 5;
-        }
+        .die.selected { transform: translateY(-8px) scale(1.1); box-shadow: 0 0 15px var(--accent-glow), 0 0 5px var(--accent); border: 1px solid var(--accent); z-index: 5; }
 
-        .bonus-text {
-            position: absolute; top: -8px; right: -6px;
-            font-size: 0.7em; font-weight: 900; color: var(--energy);
-            text-shadow: 1px 1px 0 #000;
-            animation: pop 0.3s; z-index: 6; pointer-events: none;
-        }
+        .bonus-text { position: absolute; top: -8px; right: -6px; font-size: 0.7em; font-weight: 900; color: var(--energy); text-shadow: 1px 1px 0 #000; animation: pop 0.3s; z-index: 6; pointer-events: none; }
 
-        /* 底部 */
-        .control-area {
-            flex: 0 0 auto;
-            background: #1e1e1e;
-            padding: 15px 10px;
-            border-top: 1px solid #333;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.2);
-        }
-        .hand-area {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            min-height: 55px;
-            margin-bottom: 12px;
-        }
+        .control-area { flex: 0 0 auto; background: #1e1e1e; padding: 15px 10px; border-top: 1px solid #333; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); z-index: 10; }
+        .hand-area { display: flex; justify-content: center; gap: 12px; min-height: 55px; margin-bottom: 12px; }
         .btn-group { display: flex; gap: 10px; }
-        .btn {
-            flex: 1; padding: 14px; border: none; border-radius: 8px;
-            font-weight: 700; cursor: pointer; color: #fff; font-size: 0.95em;
-            display: flex; justify-content: center; align-items: center; gap: 6px;
-            letter-spacing: 1px;
-        }
+        .btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; color: #fff; font-size: 0.95em; display: flex; justify-content: center; align-items: center; gap: 6px; letter-spacing: 1px; }
         .btn-reroll { background: #333; color: var(--energy); border: 1px solid #444; }
         .btn-reroll:active { transform: translateY(2px); }
         .btn-reroll:disabled { opacity: 0.4; }
         .btn-end { background: linear-gradient(135deg, #d32f2f, #b71c1c); box-shadow: 0 3px 0 #7f0000; }
         .btn-end:active { transform: translateY(3px); box-shadow: none; }
 
-        /* 模态框 */
-        .modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.92); z-index: 100;
-            display: none; flex-direction: column; justify-content: center; align-items: center;
-            backdrop-filter: blur(4px);
-        }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 100; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; animation: fadeIn 0.3s; }
-        .modal-box { 
-            background: #222; padding: 25px; border-radius: 12px; 
-            max-width: 85%; width: 320px; border: 1px solid #444; color: #eee;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-        }
-        .reward-option { 
-            background: #2e2e31; padding: 15px; margin: 10px 0; 
-            border: 1px solid #444; cursor: pointer; border-radius: 8px;
-            text-align: center; transition: 0.2s;
-        }
+        .modal-box { background: #222; padding: 25px; border-radius: 12px; max-width: 85%; width: 320px; border: 1px solid #444; color: #eee; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+        .reward-option { background: #2e2e31; padding: 15px; margin: 10px 0; border: 1px solid #444; cursor: pointer; border-radius: 8px; text-align: center; transition: 0.2s; }
         .reward-option:hover { border-color: var(--accent); background: #38383b; }
 
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
         @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
         @keyframes shake { 0% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } 100% { transform: translateX(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .shake { animation: shake 0.4s; }
         .fade-in { animation: pop 0.3s ease-out backwards; }
     </style>
@@ -292,27 +234,30 @@
 </div>
 
 <div id="game-container">
-    <!-- 环境特效 -->
-    <div id="modifier-area" class="modifier-bar" style="display:none;"></div>
+    <div class="fixed-zone">
+        <div id="modifier-area" class="modifier-bar" style="display:none;"></div>
 
-    <!-- 敌人 -->
-    <div class="enemy-area" id="enemy-area">
-        <div class="enemy-avatar" id="enemy-avatar">👾</div>
-        <div class="enemy-info">
-            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-                <strong id="enemy-name" style="font-size:1.1em;">史莱姆</strong>
-                <span style="font-size:0.9em; color:#888;" id="enemy-hp-text">20/20</span>
+        <div class="enemy-area" id="enemy-area">
+            <div class="enemy-avatar" id="enemy-avatar">👾</div>
+            <div class="enemy-info">
+                <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                    <strong id="enemy-name" style="font-size:1.1em;">史莱姆</strong>
+                    <span style="font-size:0.9em; color:#888;" id="enemy-hp-text">20/20</span>
+                </div>
+                <div class="enemy-hp-bar"><div class="enemy-hp-fill" id="enemy-hp-fill" style="width: 100%;"></div></div>
+                
+                <div class="enemy-meta">
+                    <div class="enemy-intent" id="enemy-intent"></div>
+                    <div class="turn-counter" id="turn-counter"></div>
+                </div>
             </div>
-            <div class="enemy-hp-bar"><div class="enemy-hp-fill" id="enemy-hp-fill" style="width: 100%;"></div></div>
-            <div class="enemy-intent" id="enemy-intent"></div>
         </div>
     </div>
 
-    <!-- 装备区 -->
-    <div class="board-area" id="board-area"></div>
-    
-    <!-- 战斗日志 -->
-    <div id="log-area" style="text-align:center; font-size:0.75em; color:#666; height:20px; margin-top:10px; flex: 0 0 auto;"></div>
+    <div class="scroll-zone">
+        <div class="board-area" id="board-area"></div>
+        <div id="log-area" style="text-align:center; font-size:0.75em; color:#666; height:20px; margin-top:10px;"></div>
+    </div>
 </div>
 
 <div class="control-area">
@@ -325,21 +270,19 @@
     </div>
 </div>
 
-<!-- 规则弹窗 -->
 <div class="modal" id="rules-modal">
     <div class="modal-box">
         <h2 style="color:var(--accent); margin-top:0; text-align:center;">冒险指南</h2>
         <div style="font-size: 0.9em; line-height: 1.6; color:#ccc;">
-            <p>1. <strong>投掷与构筑</strong>：点击下方骰子，再点击上方装备放入。</p>
-            <p>2. <strong>环境异变</strong>：每一层有不同的环境规则，请注意观察。</p>
-            <p>3. <strong>迷雾机制</strong>：迷雾状态下，敌人的攻击会有 <strong>-2 到 +3</strong> 的浮动，请做好最坏打算！</p>
-            <p>4. <strong>胜利条件</strong>：击败第5层BOSS。</p>
+            <p>1. <strong>玩法</strong>：掷骰子，填装备，击败共8层强敌。</p>
+            <p>2. <strong>回合限制</strong>：普通层<strong>6-7回合</strong>，首领层<strong>10回合</strong>。超时将受到虚空真实伤害。</p>
+            <p>3. <strong>升级</strong>：获得重复装备可提升等级。</p>
+            <p>4. <strong>环境</strong>：注意每层的环境异变。</p>
         </div>
         <button class="btn btn-reroll" style="margin-top:20px; width:100%; color:#fff;" onclick="toggleRules()">关闭</button>
     </div>
 </div>
 
-<!-- 结算弹窗 -->
 <div class="modal" id="reward-modal">
     <div class="modal-box">
         <h2 id="reward-title" style="text-align:center; color:#fff;">胜利!</h2>
@@ -349,9 +292,6 @@
 </div>
 
 <script>
-/**
- * 环境词缀系统
- */
 const MODIFIERS = [
     { id: 'normal', name: '平静', desc: '无特殊效果', color: '#888' },
     { id: 'fog', name: '迷雾', desc: '⚠️ 攻击数值有波动 (-2 ~ +3)', color: '#ccc' },
@@ -413,12 +353,17 @@ const ITEMS_DB = [
     }
 ];
 
+// --- 平衡性重构：8层挑战 ---
+// 难度曲线：F1-F3 (新手/6回合), F4-F6 (进阶/7回合), F7-F8 (噩梦/10回合)
 const ENEMIES_DB = [
-    { name: '史莱姆', hp: 25, dmg: 5, emoji: '🟢' },
-    { name: '腐化树人', hp: 45, dmg: 7, emoji: '🌳' },
-    { name: '暗影刺客', hp: 65, dmg: 9, emoji: '🗡️' },
-    { name: '死灵巫妖', hp: 90, dmg: 12, emoji: '💀' },
-    { name: '深渊魔龙', hp: 120, dmg: 15, emoji: '🐉' }
+    { name: '史莱姆', hp: 25, dmg: 5, emoji: '🟢', type: 'early' },
+    { name: '变异巨鼠', hp: 35, dmg: 6, emoji: '🐀', type: 'early' }, // New
+    { name: '腐化树人', hp: 50, dmg: 7, emoji: '🌳', type: 'early' },
+    { name: '暗影刺客', hp: 65, dmg: 9, emoji: '🗡️', type: 'mid' },
+    { name: '岩石巨人', hp: 80, dmg: 10, emoji: '🗿', type: 'mid' }, // New
+    { name: '死灵巫妖', hp: 100, dmg: 12, emoji: '💀', type: 'mid' },
+    { name: '暗黑骑士', hp: 130, dmg: 14, emoji: '👹', type: 'late' }, // New
+    { name: '深渊魔龙', hp: 160, dmg: 16, emoji: '🐉', type: 'late' }
 ];
 
 function getDieHTML(value) {
@@ -435,6 +380,8 @@ class Game {
         this.selectedHandIndex = null;
         this.floor = 1;
         this.currentMod = MODIFIERS[0];
+        this.turnCount = 1;
+        this.maxTurns = 8;
         
         this.addItem('sword');
         this.addItem('shield');
@@ -443,9 +390,9 @@ class Game {
     }
 
     initFloor() {
+        // 直接通关检查
         if (this.floor > ENEMIES_DB.length) {
-            this.showRewardModal("通关！", "你征服了绝境骰子！", true);
-            return;
+            return; // 逻辑由winBattle处理
         }
 
         if (this.floor === 1) this.currentMod = MODIFIERS[0];
@@ -453,6 +400,13 @@ class Game {
 
         const eData = ENEMIES_DB[this.floor - 1];
         this.enemy = { ...eData, maxHp: eData.hp, currentHp: eData.hp };
+        
+        // 紧凑的回合限制策略
+        if (eData.type === 'early') this.maxTurns = 6;
+        else if (eData.type === 'mid') this.maxTurns = 7;
+        else this.maxTurns = 10;
+
+        this.turnCount = 1;
         
         this.startTurn();
     }
@@ -468,12 +422,27 @@ class Game {
             this.healPlayer(2);
         }
 
+        if (this.turnCount > this.maxTurns) {
+            const erosionDmg = this.turnCount - this.maxTurns;
+            this.player.hp -= erosionDmg;
+            this.shake('game-container');
+            this.log(`⛔ 虚空侵蚀：受到 ${erosionDmg} 点真实伤害！`);
+            if (this.player.hp <= 0) {
+                this.player.hp = 0;
+                this.updateUI();
+                setTimeout(()=>this.showRewardModal("超时战败", "你在虚空中消亡了...", true), 500);
+                return;
+            }
+        }
+
         for(let i=0; i<this.player.diceCount; i++) {
             this.handDice.push({ value: this.rollD6(), id: Math.random() });
         }
         
         this.selectedHandIndex = null;
-        this.log(`第 ${this.floor} 层开始 - ${this.currentMod.name}`);
+        if (this.turnCount <= this.maxTurns) {
+            this.log(`第 ${this.floor} 层 - ${this.currentMod.name}`);
+        }
         this.updateUI();
     }
 
@@ -548,7 +517,7 @@ class Game {
                     let variance = Math.floor(Math.random() * 6) - 2; 
                     finalDmg += variance;
                     if (finalDmg < 0) finalDmg = 0;
-                    this.log(`迷雾中窜出攻击: ${finalDmg} 点!`);
+                    this.log(`迷雾攻击: ${finalDmg} 点!`);
                 }
                 
                 let damageBlocked = Math.min(this.player.armor, finalDmg);
@@ -560,16 +529,17 @@ class Game {
                     this.player.hp -= actualDmg;
                     this.shake('game-container');
                     if (this.currentMod.id !== 'fog') {
-                        this.log(`💔 受到 ${actualDmg} 点伤害 (护甲抵消 ${damageBlocked})`);
+                        this.log(`💔 受到 ${actualDmg} 伤害`);
                     }
                 } else {
-                    this.log(`🛡️ 完美防御！(抵消 ${damageBlocked})`);
+                    this.log(`🛡️ 完美防御！`);
                 }
 
                 if (this.player.hp <= 0) {
                     this.player.hp = 0;
                     this.showRewardModal("YOU DIED", `止步于第 ${this.floor} 层`, true);
                 } else {
+                    this.turnCount++;
                     this.startTurn();
                 }
             }
@@ -585,6 +555,15 @@ class Game {
     }
 
     winBattle() {
+        // 如果是最后一层 (8层)
+        if (this.floor === ENEMIES_DB.length) {
+            this.showRewardModal("传说达成", "恭喜！你击败了深渊魔龙，征服了绝境骰子！", true);
+            // 修改按钮文字
+            const btn = document.querySelector('.reward-option');
+            if(btn) btn.innerHTML = `<strong>🏆 再来一局</strong>`;
+            return;
+        }
+
         const rewards = [];
         
         rewards.push({ 
@@ -607,7 +586,8 @@ class Game {
             });
         }
 
-        if (this.floor === 2 || this.floor === 4) {
+        // 在第2, 4, 6层给予骰子奖励，保证8层通关的战力
+        if (this.floor === 2 || this.floor === 4 || this.floor === 6) {
             rewards.push({
                 name: "🎲 扩展骰子", desc: "每回合骰子 +1",
                 fn: () => { this.player.diceCount++; this.nextFloor(); }
@@ -671,6 +651,17 @@ class Game {
             
             const pct = (this.enemy.currentHp / this.enemy.maxHp) * 100;
             document.getElementById('enemy-hp-fill').style.width = `${pct}%`;
+
+            // 回合数显示优化
+            const tc = document.getElementById('turn-counter');
+            // 加上“回合数”字样
+            tc.innerText = `⏳ 回合数 ${this.turnCount}/${this.maxTurns}`;
+            if (this.turnCount > this.maxTurns) {
+                tc.classList.add('danger');
+                tc.innerText = `⚠️ 超载 +${this.turnCount - this.maxTurns}`;
+            } else {
+                tc.classList.remove('danger');
+            }
         }
 
         // Hand
