@@ -70,7 +70,7 @@
             margin-bottom: 3rem;
         }
 
-        /* 卡片样式：固定尺寸 */
+        /* 卡片样式 */
         .game-card {
             width: 280px;
             height: 320px;
@@ -99,7 +99,7 @@
         }
 
         .game-title {
-            font-size: 1.5rem; /* 稍微调整字体大小以适应较长标题 */
+            font-size: 1.5rem;
             font-weight: 700;
             margin-bottom: 0.8rem;
         }
@@ -121,17 +121,24 @@
             transform: scale(1.2) rotate(5deg);
         }
 
-        /* 专属霓虹光效 */
-        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }       /* 青色 */
-        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }      /* 玫红 */
-        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }    /* 金黄 */
-        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); } /* 绿色 */
-        .game-card.sudoku:hover { box-shadow: 0 15px 30px rgba(30, 144, 255, 0.4); }    /* 蓝色 */
-        
-        /* 绝境骰子专属光效：血月红 */
+        /* --- 专属霓虹光效设定 --- */
+        /* 绝境骰子 - 血红 */
         .game-card.rogue:hover { box-shadow: 0 15px 30px rgba(220, 20, 60, 0.5); }
+        /* 快艇骰子 - 青色 */
+        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }
+        /* 猜颜色 - 玫红 */
+        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }
+        /* 四子棋 - 金黄 */
+        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }
+        /* 数独 - 智力蓝 */
+        .game-card.sudoku:hover { box-shadow: 0 15px 30px rgba(30, 144, 255, 0.4); }
+        /* 双陆棋 - 绿色 */
+        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }
+        /* 华容道 - 琥珀橙 (致敬木质质感) */
+        .game-card.klotski:hover { box-shadow: 0 15px 30px rgba(255, 165, 0, 0.4); }
 
-        /* 入场动画 */
+
+        /* 入场动画序列 */
         .game-card {
             opacity: 0;
             animation: fadeInUp 0.8s ease-out forwards;
@@ -141,7 +148,8 @@
         .game-card:nth-child(3) { animation-delay: 0.3s; }
         .game-card:nth-child(4) { animation-delay: 0.4s; }
         .game-card:nth-child(5) { animation-delay: 0.5s; }
-        .game-card:nth-child(6) { animation-delay: 0.6s; } /* 新增 */
+        .game-card:nth-child(6) { animation-delay: 0.6s; }
+        .game-card:nth-child(7) { animation-delay: 0.7s; } /* 新增 */
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -182,32 +190,32 @@
     </header>
 
     <div class="card-container">
-        <!-- 1. 快艇骰子 -->
+        <!-- 1. 绝境骰子 (原创) -->
+        <a href="./dicerogue/" class="game-card rogue">
+            <div class="icon">💀</div>
+            <div class="game-title">绝境骰子 (原创)</div>
+            <div class="game-desc">用骰子打怪闯关<br>Dice Rogue</div>
+        </a>
+
+        <!-- 2. 快艇骰子 -->
         <a href="./yacht-dice/" class="game-card dice">
             <div class="icon">🎲</div>
             <div class="game-title">快艇骰子</div>
             <div class="game-desc">策略与运气的博弈<br>Yacht Dice</div>
         </a>
 
-        <!-- 2. 猜颜色 -->
+        <!-- 3. 猜颜色 -->
         <a href="./color-guess/" class="game-card color">
             <div class="icon">🎨</div>
             <div class="game-title">猜颜色</div>
             <div class="game-desc">考验你的推理能力<br>Color Guess</div>
         </a>
 
-        <!-- 3. 四子棋 -->
+        <!-- 4. 四子棋 -->
         <a href="./connect-four/" class="game-card connect">
             <div class="icon">🔴</div>
             <div class="game-title">四子棋</div>
             <div class="game-desc">经典的连珠策略游戏<br>Connect 4</div>
-        </a>
-
-        <!-- 4. 双陆棋 -->
-        <a href="./backgammon/" class="game-card backgammon">
-            <div class="icon">♟️</div>
-            <div class="game-title">双陆棋</div>
-            <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
         </a>
 
         <!-- 5. 数独 -->
@@ -217,11 +225,18 @@
             <div class="game-desc">逻辑推理的数字迷宫<br>Sudoku</div>
         </a>
 
-        <!-- 6. 绝境骰子 (原创) -->
-        <a href="./dicerogue/" class="game-card rogue">
-            <div class="icon">💀</div>
-            <div class="game-title">绝境骰子 (原创)</div>
-            <div class="game-desc">骰子爬塔 Roguelike<br>Dice Rogue</div>
+        <!-- 6. 双陆棋 -->
+        <a href="./backgammon/" class="game-card backgammon">
+            <div class="icon">♟️</div>
+            <div class="game-title">双陆棋</div>
+            <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
+        </a>
+
+        <!-- 7. 华容道 (新) -->
+        <a href="./klotski/" class="game-card klotski">
+            <div class="icon">🧩</div>
+            <div class="game-title">华容道</div>
+            <div class="game-desc">经典的滑块解谜<br>Klotski</div>
         </a>
     </div>
 
