@@ -138,7 +138,6 @@
         .card:hover { transform: translateY(-2px); border-color: #555; }
         .card.active-target { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); background: #2d2d30; }
         
-        /* 新增状态样式：封印、冻结、锈蚀 */
         .card.sealed { opacity: 0.4; pointer-events: none; filter: grayscale(1); border-color: #444; }
         .card.sealed::after { content: "🔒 封印"; position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#fff; font-weight:bold; background:rgba(0,0,0,0.8); padding:5px 10px; border-radius:4px; z-index:10; }
         
@@ -283,12 +282,15 @@
 <div class="modal" id="rules-modal">
     <div class="modal-box">
         <h2 style="color:var(--accent); margin-top:0; text-align:center;">冒险指南</h2>
-        <div style="font-size: 0.9em; line-height: 1.6; color:#ccc;">
-            <p>1. <strong>恶念干扰</strong>：敌人可能会<strong>封印</strong>(禁用)、<strong>冻结</strong>(限1个骰子)或<strong>腐蚀</strong>(效果减半)你的装备。</p>
-            <p>2. <strong>回合限制</strong>：普通层<strong>6-7回合</strong>，首领层<strong>10回合</strong>。超时将受到真实伤害。</p>
-            <p>3. <strong>重锤平衡</strong>：重锤基础伤害调整为8点。</p>
+        <div style="font-size: 0.9em; line-height: 1.6; color:#ccc; text-align: left;">
+            <p><strong>1. 核心目标</strong>：<br>击败共 <strong>8层</strong> 强敌即可通关。点击下方【骰子】➡️ 点击上方【装备】进行战斗。</p>
+            <p><strong>2. 成长变强</strong>：<br>战斗胜利选择战利品，获得<strong>重复装备</strong>时，该装备会自动<strong>升级</strong>（效果永久+1）。</p>
+            <p><strong>3. 危机生存</strong>：<br>• <strong>回合限制</strong>：拖延太久会受到【虚空侵蚀】的真实伤害。<br>• <strong>恶念干扰</strong>：敌人可能会【封印】或【冻结】你的装备，请灵活应对。</p>
+            <div style="margin-top:15px; padding-top:10px; border-top:1px solid #333; font-size:0.85em; color:#666; text-align:center;">
+                开发者：ArthurZhu
+            </div>
         </div>
-        <button class="btn btn-reroll" style="margin-top:20px; width:100%; color:#fff;" onclick="toggleRules()">关闭</button>
+        <button class="btn btn-reroll" style="margin-top:20px; width:100%; color:#fff;" onclick="toggleRules()">开始冒险</button>
     </div>
 </div>
 
@@ -342,7 +344,7 @@ const ITEMS_DB = [
           return "ZAP!"; 
       } 
     },
-    { id: 'hammer', icon: '🔨', name: '重锤', desc: '点数6: [8+等级] 伤害', condition: (v) => v === 6, // 削弱：10 -> 8
+    { id: 'hammer', icon: '🔨', name: '重锤', desc: '点数6: [8+等级] 伤害', condition: (v) => v === 6, 
       effect: (v, g, lvl) => { 
           let bonus = (g.currentMod.id === 'rage') ? 2 : 0;
           let val = 8 + lvl + bonus; 
@@ -420,18 +422,15 @@ class Game {
         this.player.armor = 0;
         this.player.rerolls = 2; 
         this.handDice = [];
-        // 清除上一轮的装备状态
         this.inventory.forEach(item => {
             item.storedDice = [];
-            item.debuff = null; // 清除Debuff
+            item.debuff = null; 
         });
         
         if (this.currentMod.id === 'regen') {
             this.healPlayer(2);
         }
 
-        // --- 恶念干扰系统 ---
-        // 30%概率触发，且必须有装备
         if (this.inventory.length > 0 && Math.random() < 0.3) {
             const types = ['sealed', 'frozen', 'rusted'];
             const debuffType = types[Math.floor(Math.random() * types.length)];
@@ -487,128 +486,6 @@ class Game {
         
         const item = this.inventory[itemIndex];
         
-        // 检查封印
-        if (item.debuff === 'sealed') {
-            this.log("🔒 该装备已被封印，无法使用！");
-            this.shake('board-area');
-            return;
-        }
-
-        // 检查冻结 (限1个)
-        if (item.debuff === 'frozen' && item.storedDice.length >= 1) {
-            this.log("🧊 被冻结：只能放入1个骰子！");
-            this.shake('board-area');
-            return;
-        }
-
-        const die = this.handDice[this.selectedHandIndex];
-        const dbItem = ITEMS_DB.find(i => i.id === item.id);
-
-        if (!dbItem.condition(die.value)) {
-            this.log("❌ 不满足点数条件");
-            this.shake('board-area');
-            return;
-        }
-
-        // 应用效果 (如果是rusted，效果虽然发生了，但显示数值需要处理，这里简化处理，直接让effect返回文本带上说明)
-        let resultText = dbItem.effect(die.value, this, item.level);
-        
-        // 简单处理锈蚀的数值回滚（这是一个hack，为了不重写所有effect函数）
-        // 如果是 rusted，我们需要手动修正刚才造成的数值
-        if (item.debuff === 'rusted') {
-            // 这是一个稍微复杂点的地方，因为effect已经执行了。
-            // 更好的做法是 effect 函数接受 multiplier 参数。
-            // 既然不能大改结构，我们在这里做一个“补偿机制”是不可行的。
-            // 正确做法：重构 effect 调用。
-            
-            // 为了代码简洁，我们在这里重新设计一下 effect 调用逻辑
-            // 实际上，effect 已经执行了。我们无法“撤销”。
-            // 所以，必须修改 effect 函数的传参，加入 modifier。
-            // 由于上面 ITEMS_DB 的 effect 是写死的，我们改一种方式：
-            // 我们不在这里处理 rusted 的减半，而是依靠“数值补偿”。
-            
-            // 比如：造成了10点伤害。如果是 rusted，我们给敌人回血5点。
-            // 这是一个权宜之计，但对于单文件小游戏是有效的。
-            
-            // 重新思考：上面的 effect 函数返回的是 string (e.g. "-10")。
-            // 我们可以解析这个 string。
-            
-            // 或者，最稳妥的办法：修改 ITEMS_DB 里的 effect 签名，接受 debuff 参数。
-            // 但是 ITEMS_DB 定义在上面。
-            // 让我们采用“后处理”逻辑，虽然有点脏，但管用。
-            // 不，太容易出bug。
-            
-            // 决定：在 useItem 内部，临时“劫持” game 实例的方法。
-            const originalDamage = this.damageEnemy.bind(this);
-            const originalArmor = this.addArmor.bind(this);
-            const originalHeal = this.healPlayer.bind(this);
-            
-            // 恢复
-            // 这种动态代理太复杂。
-            
-            // 最终方案：
-            // 我们修改 effect 的调用，传入 item.debuff === 'rusted' ? 0.5 : 1
-            // 需要去上面修改 ITEMS_DB 的 effect 定义。
-        }
-        
-        // 修正后的调用逻辑：
-        // 重新定义 ITEMS_DB 里的 effect 接受 multiplier
-        // 这里的 useItem 重新写一下
-        
-        // 由于我不能修改太大的结构，我将在 ITEMS_DB 的 effect 里做 hack 吗？
-        // 不，我将在下方重写 ITEMS_DB (通过 JS 覆盖) 或者直接在上面修改。
-        // 请看上面的 ITEMS_DB，我没有改动 effect 签名。
-        
-        // 真正的解决方案：
-        // 我在 Game 类里增加一个临时属性 `damageMultiplier`。
-        this.tempMultiplier = (item.debuff === 'rusted') ? 0.5 : 1;
-        
-        // 执行效果
-        // 注意：这需要 modify 上面的 ITEMS_DB。
-        // 为了确保代码正确，我将重写上面的 ITEMS_DB 的 effect 逻辑，利用 this.tempMultiplier
-        
-        // 但是 ITEMS_DB 是 const。
-        // 好吧，最简单的办法：我在这里手动判断 id 并进行逆向操作？不，太蠢。
-        
-        // 正确的 V9 做法：
-        // 我修改 damageEnemy 等核心方法，让它们接受 multiplier，或者读取全局状态。
-        // 让 effect 函数传递原始数值，damageEnemy 负责乘算。
-        
-        // 让我们看看 damageEnemy：
-        // damageEnemy(val) { ... }
-        
-        // 我将在 damageEnemy 内部应用 this.tempMultiplier。
-        
-        // 执行：
-        // 1. 设置 this.tempMultiplier
-        // 2. 调用 effect
-        // 3. 重置 this.tempMultiplier
-        
-        // 走起。
-    }
-    
-    // --- 核心修改：支持 Rusted 效果 ---
-    damageEnemy(amt) {
-        let final = Math.floor(amt * (this.tempMultiplier || 1));
-        this.enemy.currentHp = Math.max(0, this.enemy.currentHp - final);
-        this.shake('enemy-avatar');
-    }
-    addArmor(amt) {
-        let final = Math.floor(amt * (this.tempMultiplier || 1));
-        this.player.armor += final;
-    }
-    healPlayer(amt) {
-        let final = Math.floor(amt * (this.tempMultiplier || 1));
-        this.player.hp = Math.min(this.player.hp + final, this.player.maxHp);
-    }
-    // ---
-
-    // 重新实现 useItem 以支持上述逻辑
-    useItem(itemIndex) {
-        if (this.turnState !== 'player' || this.selectedHandIndex === null) return;
-        
-        const item = this.inventory[itemIndex];
-        
         if (item.debuff === 'sealed') {
             this.log("🔒 该装备被封印！");
             this.shake('board-area');
@@ -629,18 +506,14 @@ class Game {
             return;
         }
 
-        // 设置临时倍率
         this.tempMultiplier = (item.debuff === 'rusted') ? 0.5 : 1;
         
-        // 执行
         let bonusText = dbItem.effect(die.value, this, item.level);
         
-        // 如果减半了，修改提示文本
         if (this.tempMultiplier === 0.5) {
             bonusText = "📉" + bonusText;
         }
 
-        // 重置倍率
         this.tempMultiplier = 1;
         
         item.storedDice.push({ value: die.value, bonus: bonusText });
@@ -661,12 +534,19 @@ class Game {
         }
     }
 
-    // damageEnemy 已在上面重写
-
-    // addArmor 已在上面重写
-    
-    // healPlayer 已在上面重写
-    
+    damageEnemy(amt) {
+        let final = Math.floor(amt * (this.tempMultiplier || 1));
+        this.enemy.currentHp = Math.max(0, this.enemy.currentHp - final);
+        this.shake('enemy-avatar');
+    }
+    addArmor(amt) {
+        let final = Math.floor(amt * (this.tempMultiplier || 1));
+        this.player.armor += final;
+    }
+    healPlayer(amt) {
+        let final = Math.floor(amt * (this.tempMultiplier || 1));
+        this.player.hp = Math.min(this.player.hp + final, this.player.maxHp);
+    }
     addReroll(amt) { this.player.rerolls += amt; }
 
     endTurn() {
@@ -784,7 +664,9 @@ class Game {
         document.getElementById('hp-val').innerText = this.player.hp;
         document.getElementById('max-hp-val').innerText = this.player.maxHp;
         document.getElementById('armor-val').innerText = this.player.armor;
-        document.getElementById('floor-val').innerText = this.floor;
+        
+        // 层数显示修改：1 -> 1/8
+        document.getElementById('floor-val').innerText = `${this.floor}/${ENEMIES_DB.length}`;
         
         const btnReroll = document.getElementById('btn-reroll');
         document.getElementById('reroll-count').innerText = this.player.rerolls;
@@ -844,7 +726,6 @@ class Game {
         boardArea.innerHTML = '';
         this.inventory.forEach((item, idx) => {
             const dbItem = ITEMS_DB.find(i => i.id === item.id);
-            // 应用状态样式类
             let statusClass = '';
             if (item.debuff === 'sealed') statusClass = 'sealed';
             if (item.debuff === 'frozen') statusClass = 'frozen';
