@@ -65,7 +65,7 @@
             flex-wrap: wrap;
             justify-content: center;
             gap: 40px;
-            max-width: 1200px;
+            max-width: 1300px; /* 稍微加宽一点以容纳更多卡片 */
             width: 100%;
             margin-bottom: 3rem;
         }
@@ -122,21 +122,15 @@
         }
 
         /* --- 专属霓虹光效设定 --- */
-        /* 绝境骰子 - 血红 */
-        .game-card.rogue:hover { box-shadow: 0 15px 30px rgba(220, 20, 60, 0.5); }
-        /* 快艇骰子 - 青色 */
-        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }
-        /* 猜颜色 - 玫红 */
-        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }
-        /* 四子棋 - 金黄 */
-        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }
-        /* 数独 - 智力蓝 */
-        .game-card.sudoku:hover { box-shadow: 0 15px 30px rgba(30, 144, 255, 0.4); }
-        /* 双陆棋 - 绿色 */
-        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }
-        /* 华容道 - 琥珀橙 (致敬木质质感) */
-        .game-card.klotski:hover { box-shadow: 0 15px 30px rgba(255, 165, 0, 0.4); }
-
+        .game-card.rogue:hover { box-shadow: 0 15px 30px rgba(220, 20, 60, 0.5); }       /* 绝境骰子 - 血红 */
+        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }         /* 快艇骰子 - 青色 */
+        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }        /* 猜颜色 - 玫红 */
+        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }      /* 四子棋 - 金黄 */
+        .game-card.sudoku:hover { box-shadow: 0 15px 30px rgba(30, 144, 255, 0.4); }      /* 数独 - 智力蓝 */
+        .game-card.klotski:hover { box-shadow: 0 15px 30px rgba(255, 165, 0, 0.4); }      /* 华容道 - 琥珀橙 */
+        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }   /* 双陆棋 - 绿色 */
+        /* 海战棋 - 深海蓝 */
+        .game-card.battleship:hover { box-shadow: 0 15px 30px rgba(0, 100, 255, 0.5); }
 
         /* 入场动画序列 */
         .game-card {
@@ -149,7 +143,8 @@
         .game-card:nth-child(4) { animation-delay: 0.4s; }
         .game-card:nth-child(5) { animation-delay: 0.5s; }
         .game-card:nth-child(6) { animation-delay: 0.6s; }
-        .game-card:nth-child(7) { animation-delay: 0.7s; } /* 新增 */
+        .game-card:nth-child(7) { animation-delay: 0.7s; }
+        .game-card:nth-child(8) { animation-delay: 0.8s; } /* 新增 */
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -225,18 +220,25 @@
             <div class="game-desc">逻辑推理的数字迷宫<br>Sudoku</div>
         </a>
 
-        <!-- 6. 双陆棋 -->
+        <!-- 6. 华容道 -->
+        <a href="./klotski/" class="game-card klotski">
+            <div class="icon">🧩</div>
+            <div class="game-title">华容道</div>
+            <div class="game-desc">经典的滑块解谜<br>Klotski</div>
+        </a>
+
+        <!-- 7. 双陆棋 -->
         <a href="./backgammon/" class="game-card backgammon">
             <div class="icon">♟️</div>
             <div class="game-title">双陆棋</div>
             <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
         </a>
 
-        <!-- 7. 华容道 (新) -->
-        <a href="./klotski/" class="game-card klotski">
-            <div class="icon">🧩</div>
-            <div class="game-title">华容道</div>
-            <div class="game-desc">经典的滑块解谜<br>Klotski</div>
+        <!-- 8. 海战棋 (新) -->
+        <a href="./battleship/" class="game-card battleship">
+            <div class="icon">⚓</div>
+            <div class="game-title">海战棋</div>
+            <div class="game-desc">隐秘海域的策略打击<br>Battleship</div>
         </a>
     </div>
 

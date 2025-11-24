@@ -1,0 +1,763 @@
+<!-- START OF FILE 海战棋v2.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>海战棋 (by Arthur) - V2</title>
+    <style>
+        /* --- 1. 全局设计 --- */
+        :root {
+            --bg-paper: #f9f9f9; /* 纯净纸张色 */
+            --ink-color: #333;
+            --red-pen: #d32f2f; 
+            --blue-pen: #304ffe; 
+            --shadow-hard: 3px 3px 0px rgba(0,0,0,0.08);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+        body {
+            font-family: "Courier New", Courier, "Microsoft YaHei", monospace;
+            background-color: var(--bg-paper);
+            /* 【修改点4】移除背景格纹，保持干净 */
+            margin: 0; padding: 0; height: 100vh;
+            display: flex; flex-direction: column; color: var(--ink-color);
+            overflow: hidden; 
+        }
+
+        /* --- 2. 头部 --- */
+        header {
+            flex-shrink: 0; background: #fff; border-bottom: 3px solid var(--ink-color);
+            padding: 10px 20px; display: flex; justify-content: center; align-items: center;
+            z-index: 50; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        h1 { margin: 0; font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
+        .btn-help { border: 2px solid var(--ink-color); background: transparent; border-radius: 50%; width: 28px; height: 28px; font-weight: 900; margin-left: 15px; cursor: pointer; font-size: 1.1rem; }
+
+        /* --- 3. 游戏主容器 --- */
+        #game-container {
+            flex: 1; overflow-y: auto;
+            display: flex; justify-content: center; align-items: flex-start;
+            padding: 20px; gap: 40px; flex-wrap: wrap; align-content: flex-start;
+        }
+
+        @media (max-width: 768px) {
+            #game-container {
+                display: block; padding: 10px; padding-bottom: 280px; 
+            }
+            .board-wrapper { width: 100%; max-width: 400px; margin: 0 auto 25px auto; }
+            #dock-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); }
+        }
+        @media (min-width: 769px) {
+            .board-wrapper { width: 400px; }
+            #dock-container { position: sticky; bottom: 0; border-top: 3px solid var(--ink-color); }
+        }
+
+        /* --- 4. 棋盘组件 --- */
+        .board-wrapper {
+            background: #fff; 
+            padding: 4px; 
+            border: 3px solid var(--ink-color);
+            border-radius: 2px 2px 5px 3px; 
+            box-shadow: var(--shadow-hard); position: relative;
+            transition: transform 0.2s;
+        }
+        /* 顶部标签装饰 */
+        .board-wrapper::before {
+            content: ''; position: absolute; top: -8px; left: 10px; width: 80px; height: 8px;
+            background: #fff; border: 3px solid var(--ink-color); border-bottom: none; 
+            border-radius: 5px 5px 0 0;
+        }
+        
+        .active-turn { transform: translateY(-4px); box-shadow: 8px 8px 0 rgba(0,0,0,0.15); z-index: 10; border-color: #000; }
+        
+        .red-theme { color: var(--red-pen); border-color: var(--red-pen); }
+        .red-theme::before { border-color: var(--red-pen); }
+        .blue-theme { color: var(--blue-pen); border-color: var(--blue-pen); }
+        .blue-theme::before { border-color: var(--blue-pen); }
+
+        .board-header { display: flex; justify-content: space-between; font-weight: 800; margin-bottom: 6px; font-size: 1rem; padding: 0 4px; }
+
+        .board {
+            display: grid; grid-template-columns: repeat(10, 1fr); width: 100%; aspect-ratio: 1 / 1;
+            /* 棋盘外框 */
+            border: 2px solid var(--ink-color); 
+            position: relative;
+            /* 确保3D变换不会导致子元素穿模 */
+            transform-style: flat;
+        }
+        .cell { 
+            /* 【修改点3】线条变细、变浅 */
+            border: 1px solid rgba(0,0,0,0.06); 
+            position: relative; cursor: crosshair; 
+        }
+
+        /* --- 5. 舰艇样式 --- */
+        
+        .ship-shape {
+            position: absolute; 
+            /* 【修改点1】扩大一点点范围，盖住周围的线条 */
+            top: -2px; bottom: -2px; left: -2px; right: -2px;
+            /* 【修改点1】提高层级，确保在格线之上 */
+            z-index: 5;
+            pointer-events: none;
+            background-size: 100% 100%; 
+            background-repeat: no-repeat;
+            display: none; 
+        }
+        
+        .in-dock .ship-shape, 
+        .board.show-ships .cell.ship .ship-shape, 
+        .cell.ship.sunk .ship-shape { display: block; }
+
+        /* SVG Data URIs - 填充改为白色 fill='white' 以遮挡线条 */
+        .shape-bow {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 105 L50 5 L90 105' fill='white' stroke='%23333' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M50 15 L50 60' stroke='%23333' stroke-width='4'/%3E%3Ccircle cx='50' cy='80' r='10' stroke='%23333' stroke-width='3' fill='none'/%3E%3C/svg%3E");
+        }
+        .shape-body {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='10' y='-2' width='80' height='104' fill='white' stroke='%23333' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='18' stroke='%23333' stroke-width='4' fill='none'/%3E%3Cline x1='10' y1='20' x2='90' y2='20' stroke='%23333' stroke-width='2'/%3E%3Cline x1='10' y1='80' x2='90' y2='80' stroke='%23333' stroke-width='2'/%3E%3C/svg%3E");
+        }
+        .shape-stern {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 -2 L10 50 Q50 105 90 50 L90 -2' fill='white' stroke='%23333' stroke-width='6'/%3E%3Cline x1='25' y1='20' x2='75' y2='20' stroke='%23333' stroke-width='3'/%3E%3Cline x1='35' y1='40' x2='65' y2='40' stroke='%23333' stroke-width='3'/%3E%3C/svg%3E");
+        }
+
+        /* 蓝色墨水 */
+        .blue-theme .shape-bow, .dock-ship:not(.selected) .shape-bow {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 105 L50 5 L90 105' fill='white' stroke='%23304ffe' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M50 15 L50 60' stroke='%23304ffe' stroke-width='4'/%3E%3Ccircle cx='50' cy='80' r='10' stroke='%23304ffe' stroke-width='3' fill='none'/%3E%3C/svg%3E");
+        }
+        .blue-theme .shape-body, .dock-ship:not(.selected) .shape-body {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='10' y='-2' width='80' height='104' fill='white' stroke='%23304ffe' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='18' stroke='%23304ffe' stroke-width='4' fill='none'/%3E%3Cline x1='10' y1='20' x2='90' y2='20' stroke='%23304ffe' stroke-width='2'/%3E%3Cline x1='10' y1='80' x2='90' y2='80' stroke='%23304ffe' stroke-width='2'/%3E%3C/svg%3E");
+        }
+        .blue-theme .shape-stern, .dock-ship:not(.selected) .shape-stern {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 -2 L10 50 Q50 105 90 50 L90 -2' fill='white' stroke='%23304ffe' stroke-width='6'/%3E%3Cline x1='25' y1='20' x2='75' y2='20' stroke='%23304ffe' stroke-width='3'/%3E%3Cline x1='35' y1='40' x2='65' y2='40' stroke='%23304ffe' stroke-width='3'/%3E%3C/svg%3E");
+        }
+
+        /* 红色墨水 */
+        .red-theme .shape-bow, .dock-ship.selected .shape-bow {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 105 L50 5 L90 105' fill='white' stroke='%23d32f2f' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M50 15 L50 60' stroke='%23d32f2f' stroke-width='4'/%3E%3Ccircle cx='50' cy='80' r='10' stroke='%23d32f2f' stroke-width='3' fill='none'/%3E%3C/svg%3E");
+        }
+        .red-theme .shape-body, .dock-ship.selected .shape-body {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='10' y='-2' width='80' height='104' fill='white' stroke='%23d32f2f' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='18' stroke='%23d32f2f' stroke-width='4' fill='none'/%3E%3Cline x1='10' y1='20' x2='90' y2='20' stroke='%23d32f2f' stroke-width='2'/%3E%3Cline x1='10' y1='80' x2='90' y2='80' stroke='%23d32f2f' stroke-width='2'/%3E%3C/svg%3E");
+        }
+        .red-theme .shape-stern, .dock-ship.selected .shape-stern {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 -2 L10 50 Q50 105 90 50 L90 -2' fill='white' stroke='%23d32f2f' stroke-width='6'/%3E%3Cline x1='25' y1='20' x2='75' y2='20' stroke='%23d32f2f' stroke-width='3'/%3E%3Cline x1='35' y1='40' x2='65' y2='40' stroke='%23d32f2f' stroke-width='3'/%3E%3C/svg%3E");
+        }
+
+        .rot-90 { 
+            transform: rotate(-90deg); 
+            top: -2px; bottom: -2px; left: -2px; right: -2px;
+        }
+        .in-dock .ship-shape { transform: rotate(-90deg); top: 0; bottom: 0; left: -5%; right: -5%; }
+
+
+        /* --- 6. 状态标记 (修改后的火苗) --- */
+        
+        /* 【修改点2】动态火苗 - 使用径向渐变模拟燃烧核心 */
+        .cell.hit::before {
+            content: ''; 
+            position: absolute; 
+            /* 让火苗稍微居中，但大小覆盖大部分格子 */
+            top: 10%; left: 10%; width: 80%; height: 80%;
+            border-radius: 50%;
+            z-index: 20; /* 必须在舰艇上方 */
+            
+            /* 径向渐变：白芯 -> 黄 -> 橙红 -> 透明 */
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(255,255,255,0.9) 0%, 
+                rgba(255,235,59,0.9) 25%, 
+                rgba(255,87,34,0.8) 50%, 
+                rgba(255,0,0,0) 70%
+            );
+            
+            /* 混合模式让火看起来更透亮 (兼容性较好) */
+            mix-blend-mode: multiply;
+            filter: drop-shadow(0 0 2px #ff5722);
+            
+            animation: firePulse 0.8s infinite alternate ease-in-out;
+        }
+
+        /* 增加一个内层火苗，让动态更丰富 */
+        .cell.hit::after {
+            content: '';
+            position: absolute;
+            top: 20%; left: 20%; width: 60%; height: 60%;
+            background: radial-gradient(circle, #fff 10%, #ffeb3b 60%, transparent 70%);
+            border-radius: 50%;
+            z-index: 21;
+            opacity: 0.7;
+            animation: fireFlicker 0.4s infinite alternate-reverse;
+            display: block; /* 覆盖掉miss的after样式 */
+        }
+
+        @keyframes firePulse {
+            0% { transform: scale(0.9) translate(0, 2px); opacity: 0.8; }
+            100% { transform: scale(1.1) translate(0, -2px); opacity: 1; }
+        }
+        @keyframes fireFlicker {
+            0% { transform: scale(0.8) skewX(5deg); }
+            100% { transform: scale(1.0) skewX(-5deg); }
+        }
+
+        /* 击沉状态处理 */
+        .cell.ship.sunk .ship-shape { 
+            filter: grayscale(100%) opacity(0.6); 
+            z-index: 15; /* 击沉后，船要在火下面，但在红叉下面 */
+        }
+        
+        /* 击沉的红叉 - 使用单独的图层覆盖 */
+        .cell.ship.sunk .sunk-mark {
+            position: absolute; inset: 0;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23d32f2f' stroke-width='3' fill='none'%3E%3Cline x1='4' y1='4' x2='20' y2='20'/%3E%3Cline x1='20' y1='4' x2='4' y2='20'/%3E%3C/svg%3E");
+            z-index: 30; opacity: 1;
+            display: block;
+        }
+
+        /* 击沉后隐藏Hit的火苗，露出红叉和灰船 */
+        .cell.sunk.hit::before, .cell.sunk.hit::after { display: none; }
+
+        /* 未命中 Miss: 简单的水花圆点 */
+        .cell.miss::after {
+            content: ''; position: absolute; top: 38%; left: 38%; width: 24%; height: 24%;
+            background: #b0bec5; border-radius: 50%;
+            z-index: 5; animation: none; transform: none;
+        }
+        
+        .boom {
+            position: absolute; inset: -50%; pointer-events: none; z-index: 40;
+            background: radial-gradient(circle, #ffeb3b 10%, #ff5722 40%, transparent 70%);
+            border-radius: 50%; opacity: 0; animation: explode 0.4s ease-out;
+        }
+        @keyframes explode { 0% { transform: scale(0.1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+        /* --- 7. 底部控制区 --- */
+        #dock-container {
+            flex-shrink: 0; width: 100%; background: #fff; padding: 10px;
+            display: flex; flex-direction: column; align-items: center;
+            border-top: 3px solid var(--ink-color);
+        }
+        #message-area { 
+            font-weight: 800; margin-bottom: 8px; color: var(--red-pen); 
+            min-height: 20px; font-size: 1rem; text-align: center;
+        }
+        
+        #placement-ui { width: 100%; display: flex; flex-direction: column; align-items: center; }
+
+        #ship-dock { display: flex; gap: 8px; margin-bottom: 8px; justify-content: center; }
+        .controls-row { display: flex; gap: 10px; justify-content: center; width: 100%; margin-top: 2px; }
+
+        @media (min-width: 769px) {
+            .controls-row { max-width: 600px; } 
+            #ship-dock { flex-wrap: nowrap; }
+            .btn { flex: 1; } 
+        }
+
+        @media (max-width: 768px) {
+            #ship-dock { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
+            .controls-row {
+                display: grid; grid-template-columns: 1fr 1fr 1fr; 
+                grid-template-areas: "rot undo reset" "rand confirm confirm";
+                gap: 8px; width: 100%;
+            }
+            #btn-rot { grid-area: rot; }
+            #btn-undo { grid-area: undo; }
+            #btn-reset { grid-area: reset; }
+            #btn-rand { grid-area: rand; }
+            #btn-confirm { grid-area: confirm; }
+        }
+
+        .dock-ship {
+            display: flex; align-items: center; justify-content: center;
+            padding: 4px; border: 1px solid #ccc; border-radius: 3px; 
+            background: #f0f0f0; cursor: pointer; transition: 0.1s;
+        }
+        .dock-ship.selected { background: #fff; border: 2px solid var(--red-pen); transform: scale(1.02); }
+        .dock-cell { width: 18px; height: 18px; position: relative; }
+        .dock-cell:last-child { margin-right: 0; }
+
+        button.btn {
+            background: #fff; border: 2px solid var(--ink-color); padding: 8px 0;
+            font-family: inherit; font-weight: 800; cursor: pointer;
+            box-shadow: 2px 2px 0 var(--ink-color); font-size: 0.85rem; border-radius: 2px;
+            white-space: nowrap;
+        }
+        button.btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-color); }
+        button.btn:disabled { opacity: 0.5; background: #eee; box-shadow: none; transform: translate(1px, 1px); }
+        
+        #btn-rot { background: #e3f2fd; color: #1565c0; }
+        #btn-confirm { background: #e8f5e9; color: #2e7d32; font-weight: 900; }
+        .btn-action { background: #fff; }
+
+        /* --- 8. 模态框 --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(44, 62, 80, 0.95);
+            display: flex; justify-content: center; align-items: center; z-index: 100;
+        }
+        .hidden { display: none !important; }
+        .modal-content {
+            background: #fff; border: 4px solid #000; padding: 25px;
+            width: 90%; max-width: 450px; text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            pointer-events: auto; 
+        }
+        .modal-title { font-size: 1.6rem; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; font-weight: 900; }
+        
+        .rules-container { text-align: left; max-height: 60vh; overflow-y: auto; padding: 0 10px; }
+        .rule-block { margin-bottom: 15px; }
+        .rule-title { font-weight: 900; color: var(--red-pen); font-size: 1.05rem; margin-bottom: 4px; display: flex; align-items: center; }
+        .rule-title::before { content: '■'; font-size: 0.6em; margin-right: 6px; color: var(--ink-color); }
+        .rule-desc { margin: 0; padding-left: 18px; font-size: 0.95rem; color: #555; line-height: 1.5; }
+        .rule-highlight { color: #000; font-weight: bold; background: #fff8e1; padding: 0 4px; }
+        .rule-close-hint { margin-top: 20px; font-size: 0.9rem; color: #777; font-weight: bold; border-top: 1px dashed #ccc; padding-top: 10px;}
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>海战棋 (by Arthur)</h1>
+    <button class="btn-help" onclick="showRules()">?</button>
+</header>
+
+<div id="game-container">
+    <div id="red-wrapper" class="board-wrapper red-theme">
+        <div class="board-header">
+            <span id="red-name">红方</span>
+            <span id="red-score">战舰: 5</span>
+        </div>
+        <div id="red-board" class="board"></div>
+    </div>
+    <div id="blue-wrapper" class="board-wrapper blue-theme">
+        <div class="board-header">
+            <span id="blue-name">蓝方</span>
+            <span id="blue-score">战舰: 5</span>
+        </div>
+        <div id="blue-board" class="board"></div>
+    </div>
+</div>
+
+<div id="dock-container">
+    <div id="message-area">等待开始...</div>
+    
+    <div id="placement-ui" class="hidden">
+        <div id="ship-dock"></div>
+        <div class="controls-row">
+            <button class="btn" id="btn-rot" onclick="toggleOrientation()">方向: 横向</button>
+            <button class="btn btn-action" id="btn-undo" onclick="undoLastShip()">撤回</button>
+            <button class="btn btn-action" id="btn-reset" onclick="resetPlacement()">重置</button>
+            <button class="btn btn-action" id="btn-rand" onclick="randomPlacement()">随机</button>
+            <button class="btn" id="btn-confirm" onclick="confirmPlacement()" disabled>确认部署</button>
+        </div>
+    </div>
+    
+    <button class="btn" id="btn-restart" style="display:none; max-width:200px; background:#e8f5e9; color:#2e7d32;" onclick="location.reload()">再来一局</button>
+</div>
+
+<div id="modal-menu" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-title">作战指挥部</div>
+        <button class="btn" style="margin-bottom:12px; padding:12px;" onclick="initGame('pve')">人机演习 (PvE)</button>
+        <button class="btn" style="padding:12px;" onclick="initGame('pvp')">双人对决 (PvP)</button>
+    </div>
+</div>
+
+<div id="modal-transition" class="modal-overlay hidden">
+    <div class="modal-content">
+        <h2 class="modal-title" style="color:var(--red-pen)">⚠️ 军事机密 ⚠️</h2>
+        <p id="transition-msg" style="margin-bottom:20px; font-size:1.1rem; font-weight:bold;">...</p>
+        <button class="btn" style="background:#e8f5e9; color:#2e7d32; padding:10px;" onclick="endTransition()">确认 / 继续</button>
+    </div>
+</div>
+
+<div id="modal-rules" class="modal-overlay hidden" onclick="closeRules(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-title">作战手册</div>
+        <div class="rules-container">
+            <div class="rule-block">
+                <div class="rule-title">1. 部署阶段</div>
+                <p class="rule-desc">选中底部舰艇，点击海域放置。利用【方向】按钮旋转舰艇。</p>
+            </div>
+            <div class="rule-block">
+                <div class="rule-title">2. 索敌攻击</div>
+                <p class="rule-desc">敌舰在未被击沉前处于<span class="rule-highlight">隐形状态</span>。击中会有燃烧标记，未命中显示水花。</p>
+            </div>
+            <div class="rule-block">
+                <div class="rule-title">3. 连击机制</div>
+                <p class="rule-desc">若<span class="rule-highlight">命中</span>敌舰，可继续攻击，直到未命中为止。</p>
+            </div>
+            <div class="rule-block">
+                <div class="rule-title">4. 击沉与胜利</div>
+                <p class="rule-desc">击沉舰艇后显示残骸与红叉。率先击沉敌方<span class="rule-highlight">5艘</span>战舰获胜。</p>
+            </div>
+        </div>
+        <div class="rule-close-hint">（点击空白区域关闭）</div>
+        <div style="margin-top:10px; text-align:right; font-size:0.8rem; color:#ccc;">开发者：ArthurZhu</div>
+    </div>
+</div>
+
+<div id="modal-gameover" class="modal-overlay hidden">
+    <div class="modal-content">
+        <div class="modal-title" id="winner-title">战役结束</div>
+        <p id="winner-msg" style="margin-bottom:20px; font-size:1.1rem;"></p>
+        <button class="btn" style="padding:10px;" onclick="location.reload()">重新整编</button>
+    </div>
+</div>
+
+<script>
+    const CONFIG = { size: 10, ships: [5, 4, 3, 3, 2] };
+    const STATE = {
+        mode: null, phase: 'menu', turn: 'red', placing: 'red', isHorizontal: true, selectedShipId: null,
+        redGrid: [], blueGrid: [], redShips: [], blueShips: [],
+        pvePlayer: 'red',
+        ai: { mode: 'hunt', stack: [], currentHits: [] },
+        nextTransitionAction: null
+    };
+
+    const els = {
+        redBoard: document.getElementById('red-board'), blueBoard: document.getElementById('blue-board'),
+        redWrapper: document.getElementById('red-wrapper'), blueWrapper: document.getElementById('blue-wrapper'),
+        dock: document.getElementById('ship-dock'), placeUI: document.getElementById('placement-ui'),
+        msg: document.getElementById('message-area'), btnConfirm: document.getElementById('btn-confirm'),
+        modalMenu: document.getElementById('modal-menu'), modalTrans: document.getElementById('modal-transition'),
+        modalOver: document.getElementById('modal-gameover')
+    };
+
+    function createShipShapeHTML(cellIndex, shipSize, isHorizontal) {
+        const shape = document.createElement('div');
+        shape.className = 'ship-shape';
+        if (cellIndex === 0) shape.classList.add('shape-bow');
+        else if (cellIndex === shipSize - 1) shape.classList.add('shape-stern');
+        else shape.classList.add('shape-body');
+        
+        if (isHorizontal) shape.classList.add('rot-90');
+        return shape;
+    }
+
+    function createGrid(el, gridData, owner) {
+        el.innerHTML = '';
+        for (let y=0; y<CONFIG.size; y++) {
+            let row=[];
+            for (let x=0; x<CONFIG.size; x++) {
+                const cell = document.createElement('div');
+                cell.className='cell'; cell.dataset.x=x; cell.dataset.y=y;
+                cell.onclick = () => handleCellClick(x, y, owner);
+                el.appendChild(cell); row.push(0);
+            }
+            gridData.push(row);
+        }
+    }
+
+    function initGame(mode) {
+        STATE.mode = mode; STATE.redGrid=[]; STATE.blueGrid=[]; STATE.redShips=[]; STATE.blueShips=[];
+        createGrid(els.redBoard, STATE.redGrid, 'red'); createGrid(els.blueBoard, STATE.blueGrid, 'blue');
+        els.modalMenu.classList.add('hidden');
+        
+        if(mode==='pve') {
+            STATE.pvePlayer = Math.random()<0.5?'red':'blue';
+            if(STATE.pvePlayer==='red') { document.getElementById('red-name').textContent="红方 (你)"; document.getElementById('blue-name').textContent="蓝方 (电脑)"; }
+            else { document.getElementById('red-name').textContent="红方 (电脑)"; document.getElementById('blue-name').textContent="蓝方 (你)"; }
+        }
+
+        if(mode==='pve' && STATE.pvePlayer==='blue') { aiPlaceShips('red'); startPlacement('blue'); }
+        else startPlacement('red');
+    }
+
+    function showRules() { document.getElementById('modal-rules').classList.remove('hidden'); }
+    function closeRules(e) { document.getElementById('modal-rules').classList.add('hidden'); }
+
+    function startPlacement(who) {
+        STATE.phase='placement'; STATE.placing=who; STATE.isHorizontal=true; STATE.selectedShipId=null;
+        document.getElementById('btn-rot').textContent="方向: 横向";
+        els.btnConfirm.disabled=true; els.placeUI.classList.remove('hidden');
+        
+        const isRed = (who==='red');
+        els.redBoard.classList.toggle('show-ships', isRed); els.blueBoard.classList.toggle('show-ships', !isRed);
+        els.redWrapper.classList.toggle('active-turn', isRed); els.blueWrapper.classList.toggle('active-turn', !isRed);
+        els.msg.textContent = `${isRed?'红方':'蓝方'}部署：请选中舰艇，再点击海域放置`;
+        els.msg.style.color = isRed ? "var(--red-pen)" : "var(--blue-pen)";
+        renderDock();
+    }
+
+    function renderDock() {
+        els.dock.innerHTML='';
+        const ships = STATE.placing==='red'?STATE.redShips:STATE.blueShips;
+        const placedIds = ships.map(s=>s.id);
+        let allPlaced=true;
+
+        CONFIG.ships.forEach((size, id) => {
+            if(!placedIds.includes(id)) {
+                allPlaced=false;
+                const item = document.createElement('div');
+                item.className = 'dock-ship in-dock';
+                if(STATE.selectedShipId===id) item.classList.add('selected');
+                
+                for(let i=0; i<size; i++) {
+                    const cell = document.createElement('div');
+                    cell.className='dock-cell';
+                    cell.appendChild(createShipShapeHTML(i, size, false));
+                    item.appendChild(cell);
+                }
+                item.onclick = () => { STATE.selectedShipId=id; renderDock(); };
+                els.dock.appendChild(item);
+            }
+        });
+        els.btnConfirm.disabled = !allPlaced;
+        if(allPlaced) els.msg.textContent="部署完成，请点击确认";
+    }
+
+    function handleCellClick(x, y, owner) {
+        if(STATE.phase==='placement') {
+            if(owner!==STATE.placing || STATE.selectedShipId===null) return;
+            if(placeShipOnBoard(x, y, CONFIG.ships[STATE.selectedShipId], STATE.selectedShipId)) {
+                STATE.selectedShipId=null; renderDock();
+            }
+        } else if(STATE.phase==='combat') {
+            if(owner===STATE.turn) return;
+            if(STATE.mode==='pve' && STATE.turn!==STATE.pvePlayer) return;
+            fireShot(owner, x, y);
+        }
+    }
+
+    function placeShipOnBoard(x, y, size, id) {
+        const grid=STATE.placing==='red'?STATE.redGrid:STATE.blueGrid;
+        const ships=STATE.placing==='red'?STATE.redShips:STATE.blueShips;
+        const boardEl=STATE.placing==='red'?els.redBoard:els.blueBoard;
+
+        if(STATE.isHorizontal && x+size>10) return false;
+        if(!STATE.isHorizontal && y+size>10) return false;
+
+        for(let i=0; i<size; i++) {
+            let cx=STATE.isHorizontal?x+i:x, cy=STATE.isHorizontal?y:y+i;
+            if(grid[cy][cx]!==0) return false;
+        }
+
+        const coords=[];
+        for(let i=0; i<size; i++) {
+            let cx=STATE.isHorizontal?x+i:x, cy=STATE.isHorizontal?y:y+i;
+            grid[cy][cx]=1; coords.push({x:cx,y:cy});
+            const cell = boardEl.querySelector(`.cell[data-x="${cx}"][data-y="${cy}"]`);
+            cell.classList.add('ship');
+            cell.appendChild(createShipShapeHTML(i, size, STATE.isHorizontal));
+        }
+        ships.push({id, size, coords, sunk:false});
+        return true;
+    }
+
+    function toggleOrientation() {
+        STATE.isHorizontal=!STATE.isHorizontal;
+        document.getElementById('btn-rot').textContent=STATE.isHorizontal?"方向: 横向":"方向: 纵向";
+    }
+    function undoLastShip() {
+        const ships=STATE.placing==='red'?STATE.redShips:STATE.blueShips;
+        const grid=STATE.placing==='red'?STATE.redGrid:STATE.blueGrid;
+        const boardEl=STATE.placing==='red'?els.redBoard:els.blueBoard;
+        if(!ships.length) return;
+        const last=ships.pop();
+        last.coords.forEach(c => {
+            grid[c.y][c.x]=0;
+            const cell=boardEl.querySelector(`.cell[data-x="${c.x}"][data-y="${c.y}"]`);
+            cell.classList.remove('ship'); cell.innerHTML='';
+        });
+        STATE.selectedShipId=null; renderDock();
+    }
+    function resetPlacement() {
+        const ships=STATE.placing==='red'?STATE.redShips:STATE.blueShips;
+        while(ships.length) undoLastShip();
+    }
+    function randomPlacement() { resetPlacement(); aiPlaceShips(STATE.placing); renderDock(); }
+
+    function confirmPlacement() {
+        if(STATE.placing==='red') {
+            if(STATE.mode==='pve') {
+                if(!STATE.blueShips.length) aiPlaceShips('blue');
+                startCombat();
+            } else showTransition('blue_place');
+        } else showTransition('combat_start');
+    }
+
+    function aiPlaceShips(color) {
+        const grid=color==='red'?STATE.redGrid:STATE.blueGrid;
+        const ships=color==='red'?STATE.redShips:STATE.blueShips;
+        const boardEl=color==='red'?els.redBoard:els.blueBoard;
+        
+        CONFIG.ships.forEach((size, id) => {
+            let placed=false;
+            while(!placed) {
+                const isH=Math.random()>0.5;
+                const x=Math.floor(Math.random()*10), y=Math.floor(Math.random()*10);
+                let valid=true;
+                if((isH && x+size>10) || (!isH && y+size>10)) valid=false;
+                else { for(let i=0; i<size; i++) if(grid[isH?y:y+i][isH?x+i:x]!==0) valid=false; }
+                
+                if(valid) {
+                    const coords=[];
+                    for(let i=0; i<size; i++) {
+                        let cx=isH?x+i:x, cy=isH?y:y+i;
+                        grid[cy][cx]=1; coords.push({x:cx,y:cy});
+                        const cell=boardEl.querySelector(`.cell[data-x="${cx}"][data-y="${cy}"]`);
+                        cell.classList.add('ship');
+                        cell.appendChild(createShipShapeHTML(i, size, isH));
+                    }
+                    ships.push({id, size, coords, sunk:false});
+                    placed=true;
+                }
+            }
+        });
+    }
+
+    function showTransition(type) {
+        els.modalTrans.classList.remove('hidden');
+        const txt=document.getElementById('transition-msg');
+        if(type==='blue_place') {
+            txt.innerHTML="红方部署完毕。<br>请红方回避，交由蓝方部署。";
+            STATE.nextTransitionAction=()=>startPlacement('blue');
+        } else if(type==='combat_start') {
+            txt.innerHTML="部署完毕，战斗警报！<br>红方准备开火。";
+            STATE.nextTransitionAction=startCombat;
+        } else if(type.startsWith('switch')) {
+            const next=type==='switch_red'?'红方':'蓝方';
+            txt.innerHTML=`未命中。<br>攻守交换，${next}准备。`;
+            STATE.nextTransitionAction=()=>switchTurn(type==='switch_red'?'red':'blue');
+        }
+    }
+    function endTransition() { els.modalTrans.classList.add('hidden'); if(STATE.nextTransitionAction) STATE.nextTransitionAction(); }
+
+    function startCombat() {
+        STATE.phase='combat'; els.placeUI.classList.add('hidden'); els.dock.style.display='none';
+        switchTurn('red');
+        if(STATE.mode==='pve' && STATE.pvePlayer==='blue') setTimeout(processAiTurn, 1000);
+    }
+    function switchTurn(who) {
+        STATE.turn=who;
+        els.redBoard.classList.remove('show-ships'); els.blueBoard.classList.remove('show-ships');
+        els.redWrapper.classList.remove('active-turn'); els.blueWrapper.classList.remove('active-turn');
+        const isRed=(who==='red');
+        if(isRed) { els.redBoard.classList.add('show-ships'); els.redWrapper.classList.add('active-turn'); }
+        else { els.blueBoard.classList.add('show-ships'); els.blueWrapper.classList.add('active-turn'); }
+        els.msg.textContent=`${isRed?'红方':'蓝方'}回合：点击敌方海域开火`;
+        els.msg.style.color=isRed?"var(--red-pen)":"var(--blue-pen)";
+        
+        if(STATE.mode==='pve') {
+            if(STATE.pvePlayer==='red') { els.redBoard.classList.add('show-ships'); els.blueBoard.classList.remove('show-ships'); }
+            else { els.blueBoard.classList.add('show-ships'); els.redBoard.classList.remove('show-ships'); }
+        }
+    }
+
+    function fireShot(targetOwner, x, y) {
+        const grid=targetOwner==='red'?STATE.redGrid:STATE.blueGrid;
+        const boardEl=targetOwner==='red'?els.redBoard:els.blueBoard;
+        if(grid[y][x]>1) return false;
+
+        const cell=boardEl.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
+        const boom=document.createElement('div'); boom.className='boom'; cell.appendChild(boom);
+        setTimeout(()=>boom.remove(),400);
+
+        if(grid[y][x]===1) {
+            grid[y][x]=3; cell.classList.add('hit');
+            els.msg.textContent="命中！继续开火！";
+            const sunk=checkSunk(targetOwner); checkWin(targetOwner);
+            if(STATE.phase==='gameover') return;
+            
+            if(STATE.mode==='pve' && STATE.turn!==STATE.pvePlayer) {
+                if(sunk) { STATE.ai.mode='hunt'; STATE.ai.stack=[]; STATE.ai.currentHits=[]; }
+                else { STATE.ai.currentHits.push({x,y}); updateAiStack(targetOwner); }
+                setTimeout(processAiTurn, 1000);
+            }
+            return true;
+        } else {
+            grid[y][x]=2; cell.classList.add('miss');
+            els.msg.textContent="未命中...";
+            if(STATE.mode==='pvp') setTimeout(()=>showTransition(STATE.turn==='red'?'switch_blue':'switch_red'), 800);
+            else {
+                const next=STATE.turn==='red'?'blue':'red';
+                switchTurn(next);
+                if(next!==STATE.pvePlayer) setTimeout(processAiTurn, 1000);
+            }
+            return false;
+        }
+    }
+
+    function checkSunk(owner) {
+        const ships=owner==='red'?STATE.redShips:STATE.blueShips;
+        const grid=owner==='red'?STATE.redGrid:STATE.blueGrid;
+        const boardEl=owner==='red'?els.redBoard:els.blueBoard;
+        let anySunk=false;
+        ships.forEach(ship => {
+            if(!ship.sunk) {
+                if(ship.coords.every(c=>grid[c.y][c.x]===3)) {
+                    ship.sunk=true; anySunk=true;
+                    els.msg.textContent="敌舰沉没！";
+                    ship.coords.forEach(c=>{
+                        const cell = boardEl.querySelector(`.cell[data-x="${c.x}"][data-y="${c.y}"]`);
+                        cell.classList.add('sunk');
+                        // 击沉时添加红叉div
+                        const mark = document.createElement('div');
+                        mark.className = 'sunk-mark';
+                        cell.appendChild(mark);
+                    });
+                    updateScore();
+                }
+            }
+        });
+        return anySunk;
+    }
+    function updateScore() {
+        const r=STATE.redShips.filter(s=>!s.sunk).length;
+        const b=STATE.blueShips.filter(s=>!s.sunk).length;
+        document.getElementById('red-score').textContent=`战舰: ${r}`;
+        document.getElementById('blue-score').textContent=`战舰: ${b}`;
+    }
+    function checkWin(loser) {
+        const ships=loser==='red'?STATE.redShips:STATE.blueShips;
+        if(ships.every(s=>s.sunk)) {
+            STATE.phase='gameover'; els.modalOver.classList.remove('hidden');
+            const winner=loser==='red'?'蓝方':'红方';
+            document.getElementById('winner-msg').textContent=`${winner} 取得最终胜利！`;
+            document.getElementById('winner-title').style.color=loser==='red'?'var(--blue-pen)':'var(--red-pen)';
+        }
+    }
+
+    function updateAiStack(targetOwner) {
+        STATE.ai.mode='target';
+        const hits=STATE.ai.currentHits;
+        const grid=targetOwner==='red'?STATE.redGrid:STATE.blueGrid;
+        STATE.ai.stack=[];
+        
+        if(hits.length===1) {
+            const {x,y}=hits[0];
+            [{x,y:y-1},{x,y:y+1},{x:x-1,y},{x:x+1,y}].forEach(n=>{
+                if(isValid(n.x,n.y,grid)) STATE.ai.stack.push(n);
+            });
+            STATE.ai.stack.sort(()=>Math.random()-0.5);
+        } else {
+            hits.sort((a,b)=>(a.x-b.x)+(a.y-b.y));
+            const f=hits[0], l=hits[hits.length-1];
+            const isV=(f.x===l.x);
+            let cands=[];
+            if(isV) { cands.push({x:f.x,y:f.y-1}); cands.push({x:l.x,y:l.y+1}); }
+            else { cands.push({x:f.x-1,y:f.y}); cands.push({x:l.x+1,y:l.y}); }
+            cands.forEach(c=>{ if(isValid(c.x,c.y,grid)) STATE.ai.stack.push(c); });
+        }
+    }
+    function isValid(x, y, grid) { return x>=0&&x<10&&y>=0&&y<10&&grid[y][x]<=1; }
+
+    function processAiTurn() {
+        if(STATE.phase!=='combat') return;
+        const target=STATE.pvePlayer, grid=target==='red'?STATE.redGrid:STATE.blueGrid;
+        let tx, ty;
+        while(STATE.ai.stack.length>0) {
+            const t=STATE.ai.stack.pop();
+            if(grid[t.y][t.x]<=1) { tx=t.x; ty=t.y; break; }
+        }
+        if(tx===undefined) {
+            let att=0; do { tx=Math.floor(Math.random()*10); ty=Math.floor(Math.random()*10); att++; }
+            while(grid[ty][tx]>1 && att<200);
+            if(grid[ty][tx]>1) {
+                for(let Y=0;Y<10;Y++) for(let X=0;X<10;X++) if(grid[Y][X]<=1) {tx=X;ty=Y;}
+            }
+        }
+        fireShot(target, tx, ty);
+    }
+</script>
+</body>
+</html>
