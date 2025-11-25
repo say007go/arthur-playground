@@ -1,25 +1,41 @@
-<!-- START OF FILE 海战棋v4_final_fix.html -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>海战棋 (by Arthur) - V4 Intelligent</title>
+    <title>海战棋 (by Arthur) - V4 Final Polished</title>
     <style>
         /* --- 1. 全局设计 --- */
         :root {
-            --bg-paper: #f9f9f9;
+            /* 墙面背景色 */
+            --bg-wall: #e8e8e8;
+            --bg-paper: #fdfdfd; 
             --ink-color: #333;
             --red-pen: #d32f2f; 
             --blue-pen: #304ffe; 
-            --shadow-hard: 3px 3px 0px rgba(0,0,0,0.08);
+            --header-height: 60px;
+            
+            /* 按钮颜色定义 */
+            --btn-blue: #3b82f6;
+            --btn-blue-dark: #2563eb;
+            --btn-green: #22c55e;
+            --btn-green-dark: #16a34a;
+            --btn-orange: #f97316;
+            --btn-orange-dark: #ea580c;
+            --btn-purple: #a855f7;
+            --btn-purple-dark: #9333ea;
+            --btn-gray: #f3f4f6;
+            --btn-gray-dark: #d1d5db;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
 
         body {
             font-family: "Courier New", Courier, "Microsoft YaHei", monospace;
-            background-color: var(--bg-paper);
+            /* 模拟有质感的墙面 */
+            background-color: var(--bg-wall);
+            background-image: radial-gradient(#d1d1d1 1px, transparent 1px);
+            background-size: 20px 20px;
             margin: 0; padding: 0; 
             min-height: 100vh;
             color: var(--ink-color);
@@ -31,36 +47,51 @@
 
         /* --- 2. 头部 --- */
         header {
-            flex-shrink: 0; background: #fff; border-bottom: 3px solid var(--ink-color);
-            padding: 10px 20px; display: flex; justify-content: center; align-items: center;
-            z-index: 50; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            flex-shrink: 0; 
+            background: #fff; 
+            border-bottom: 4px solid var(--ink-color);
+            padding: 0 20px; height: var(--header-height);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 50; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             position: sticky; top: 0; 
         }
         h1 { margin: 0; font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
-        .btn-help { border: 2px solid var(--ink-color); background: transparent; border-radius: 50%; width: 28px; height: 28px; font-weight: 900; margin-left: 15px; cursor: pointer; font-size: 1.1rem; }
+        .btn-help { border: 2px solid var(--ink-color); background: transparent; border-radius: 50%; width: 28px; height: 28px; font-weight: 900; margin-left: 15px; cursor: pointer; font-size: 1.1rem; transition: transform 0.1s;}
+        .btn-help:active { transform: scale(0.9); }
 
         /* --- 3. 游戏主容器 --- */
         #game-container {
             flex: 1; 
-            display: flex; justify-content: center; align-items: flex-start;
-            padding: 20px; gap: 40px; flex-wrap: wrap; align-content: flex-start;
-            padding-bottom: 100px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;     
+            padding: 20px; 
+            gap: 40px; 
+            flex-wrap: wrap; 
+            align-content: center;   
+            padding-bottom: 120px;   
+            min-height: calc(100vh - var(--header-height)); 
         }
 
         .visually-hidden { display: none !important; }
 
         @media (max-width: 768px) {
             #game-container {
-                display: block; 
-                padding: 10px; 
-                padding-bottom: 320px; 
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start; 
+                align-items: center;
+                padding-top: 50px; /* 增加顶部空间给胶带效果 */
+                padding-bottom: 350px; 
+                gap: 30px;
             }
-            .board-wrapper { width: 100%; max-width: 400px; margin: 0 auto 30px auto; }
-            #dock-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); }
+            .board-wrapper { width: 100%; max-width: 400px; }
+            #dock-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); }
         }
 
         @media (max-height: 600px) and (orientation: landscape) {
-            #game-container { padding-bottom: 40px; display: flex; }
+            #game-container { padding-bottom: 40px; display: flex; align-items: flex-start; padding-top: 20px; }
             #dock-container { position: relative; bottom: auto; border-top: 3px solid var(--ink-color); box-shadow: none; margin-top: 20px; }
             header { position: relative; } 
         }
@@ -70,36 +101,58 @@
             #dock-container { position: sticky; bottom: 0; border-top: 3px solid var(--ink-color); }
         }
 
-        /* --- 4. 棋盘组件 --- */
+        /* --- 4. 棋盘组件 (卡纸胶带风格) --- */
         .board-wrapper {
-            background: #fff; padding: 4px; 
-            border: 3px solid var(--ink-color);
-            border-radius: 2px 2px 5px 3px; 
-            box-shadow: var(--shadow-hard); position: relative;
-            transition: transform 0.2s;
+            background: var(--bg-paper); 
+            padding: 15px; 
+            /* 卡纸阴影：模拟纸张贴在墙上的立体感 */
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1);
+            border-radius: 2px;
+            position: relative;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin-top: 10px; /* 给胶带留位置 */
         }
-        .board-wrapper::before {
-            content: ''; position: absolute; top: -8px; left: 10px; width: 80px; height: 8px;
-            background: #fff; border: 3px solid var(--ink-color); border-bottom: none; 
-            border-radius: 5px 5px 0 0;
-        }
-        
-        .active-turn { transform: translateY(-4px); box-shadow: 8px 8px 0 rgba(0,0,0,0.15); z-index: 10; border-color: #000; }
-        
-        .red-theme { color: var(--red-pen); border-color: var(--red-pen); }
-        .red-theme::before { border-color: var(--red-pen); }
-        .blue-theme { color: var(--blue-pen); border-color: var(--blue-pen); }
-        .blue-theme::before { border-color: var(--blue-pen); }
 
-        .board-header { display: flex; justify-content: space-between; font-weight: 800; margin-bottom: 6px; font-size: 1rem; padding: 0 4px; }
+        /* 胶带效果 */
+        .board-wrapper::before {
+            content: '';
+            position: absolute;
+            top: -15px; left: 50%;
+            width: 120px; height: 35px;
+            background-color: rgba(235, 228, 180, 0.85); /* 米黄色胶带 */
+            transform: translateX(-50%) rotate(-1.5deg); /* 微微倾斜 */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            z-index: 10;
+            border-left: 2px dashed rgba(255,255,255,0.3); /* 模拟撕裂边缘 */
+            border-right: 2px dashed rgba(255,255,255,0.3);
+            backdrop-filter: blur(1px);
+        }
+        
+        .active-turn { 
+            transform: scale(1.02); 
+            z-index: 20; 
+            box-shadow: 0 15px 30px rgba(0,0,0,0.25), 0 5px 10px rgba(0,0,0,0.15);
+        }
+        
+        .red-theme { color: var(--red-pen); }
+        .blue-theme { color: var(--blue-pen); }
+
+        .board-header { 
+            display: flex; justify-content: space-between; 
+            font-weight: 800; margin-bottom: 10px; 
+            font-size: 0.95rem; padding: 0 2px; 
+            border-bottom: 2px dashed #ddd; /* 虚线分割 */
+            padding-bottom: 5px;
+        }
 
         .board {
             display: grid; grid-template-columns: repeat(10, 1fr); width: 100%; aspect-ratio: 1 / 1;
             border: 2px solid var(--ink-color); position: relative; transform-style: flat;
+            background: #fff;
         }
-        .cell { border: 1px solid rgba(0,0,0,0.06); position: relative; cursor: crosshair; }
+        .cell { border: 1px solid rgba(0,0,0,0.1); position: relative; cursor: crosshair; }
 
-        /* --- 5. 舰艇样式 SVG --- */
+        /* --- 5. 舰艇样式 SVG (保持原样) --- */
         .ship-shape {
             position: absolute; 
             top: -1px; bottom: -1px; left: -1px; right: -1px;
@@ -107,11 +160,6 @@
             background-size: 100% 100%; background-repeat: no-repeat; display: none; 
         }
         .in-dock .ship-shape, .board.show-ships .cell.ship .ship-shape, .cell.ship.sunk .ship-shape { display: block; }
-
-        /* 基础形状 */
-        .shape-bow { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 102 L50 5 L90 102' fill='white' stroke='%23333' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M50 15 L50 60' stroke='%23333' stroke-width='4'/%3E%3Ccircle cx='50' cy='80' r='10' stroke='%23333' stroke-width='3' fill='none'/%3E%3C/svg%3E"); }
-        .shape-body { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='0' y='-5' width='100' height='110' fill='white' stroke='none'/%3E%3Cline x1='10' y1='-5' x2='10' y2='105' stroke='%23333' stroke-width='6'/%3E%3Cline x1='90' y1='-5' x2='90' y2='105' stroke='%23333' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='18' stroke='%23333' stroke-width='4' fill='none'/%3E%3Cline x1='10' y1='20' x2='90' y2='20' stroke='%23333' stroke-width='2'/%3E%3Cline x1='10' y1='80' x2='90' y2='80' stroke='%23333' stroke-width='2'/%3E%3C/svg%3E"); }
-        .shape-stern { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 -2 L10 50 Q50 105 90 50 L90 -2' fill='white' stroke='%23333' stroke-width='6'/%3E%3Cline x1='25' y1='20' x2='75' y2='20' stroke='%23333' stroke-width='3'/%3E%3Cline x1='35' y1='40' x2='65' y2='40' stroke='%23333' stroke-width='3'/%3E%3C/svg%3E"); }
 
         /* 蓝色主题 (Blue Pen) */
         .blue-theme .shape-bow, .board-wrapper.blue-theme .cell .shape-bow {
@@ -138,7 +186,7 @@
         .rot-90 { transform: rotate(-90deg); top: -1px; bottom: -1px; left: -1px; right: -1px; }
         .in-dock .ship-shape { transform: rotate(-90deg); top: 0; bottom: 0; left: -5%; right: -5%; }
 
-        /* --- 6. 状态标记 --- */
+        /* --- 6. 状态标记 (保持原样) --- */
         .cell.hit::before {
             content: ''; position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; border-radius: 50%; z-index: 20;
             background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9) 0%, rgba(255,235,59,0.9) 25%, rgba(255,87,34,0.8) 50%, rgba(255,0,0,0) 70%);
@@ -173,17 +221,21 @@
 
         /* --- 7. 底部控制区 --- */
         #dock-container {
-            flex-shrink: 0; width: 100%; background: #fff; padding: 10px;
+            flex-shrink: 0; width: 100%; 
+            background: #fcfcfc; 
+            padding: 15px;
             display: flex; flex-direction: column; align-items: center;
-            border-top: 3px solid var(--ink-color);
+            border-top: 1px solid #ccc;
+            /* 增加顶部阴影区分 */
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
         }
         #message-area { 
-            font-weight: 800; margin-bottom: 8px; color: var(--red-pen); 
+            font-weight: 800; margin-bottom: 12px; color: var(--red-pen); 
             min-height: 20px; font-size: 1rem; text-align: center;
         }
         #placement-ui { width: 100%; display: flex; flex-direction: column; align-items: center; }
-        #ship-dock { display: flex; gap: 8px; margin-bottom: 8px; justify-content: center; }
-        .controls-row { display: flex; gap: 10px; justify-content: center; width: 100%; margin-top: 2px; }
+        #ship-dock { display: flex; gap: 8px; margin-bottom: 15px; justify-content: center; }
+        .controls-row { display: flex; gap: 10px; justify-content: center; width: 100%; margin-top: 5px; }
 
         @media (min-width: 769px) { .controls-row { max-width: 600px; } #ship-dock { flex-wrap: nowrap; } .btn { flex: 1; } }
         @media (max-width: 768px) {
@@ -191,7 +243,7 @@
             .controls-row {
                 display: grid; grid-template-columns: 1fr 1fr 1fr; 
                 grid-template-areas: "rot undo reset" "rand confirm confirm";
-                gap: 8px; width: 100%;
+                gap: 12px; width: 100%;
             }
             #btn-rot { grid-area: rot; } #btn-undo { grid-area: undo; } #btn-reset { grid-area: reset; }
             #btn-rand { grid-area: rand; } #btn-confirm { grid-area: confirm; }
@@ -199,40 +251,88 @@
 
         .dock-ship {
             display: flex; align-items: center; justify-content: center;
-            padding: 4px; border: 1px solid #ccc; border-radius: 3px; 
-            background: #f0f0f0; cursor: pointer; transition: 0.1s;
+            padding: 4px; border: 1px solid #ccc; border-radius: 4px; 
+            background: #fff; cursor: pointer; transition: 0.2s;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
         }
-        .red-theme .dock-ship.selected { background: #fff; border: 2px solid var(--red-pen); transform: scale(1.02); }
-        .blue-theme .dock-ship.selected { background: #fff; border: 2px solid var(--blue-pen); transform: scale(1.02); }
+        .red-theme .dock-ship.selected { background: #fff0f0; border: 2px solid var(--red-pen); transform: scale(1.05); box-shadow: 3px 3px 0 rgba(211, 47, 47, 0.2); }
+        .blue-theme .dock-ship.selected { background: #f0f4ff; border: 2px solid var(--blue-pen); transform: scale(1.05); box-shadow: 3px 3px 0 rgba(48, 79, 254, 0.2); }
 
         .dock-cell { width: 18px; height: 18px; position: relative; }
         .dock-cell:last-child { margin-right: 0; }
 
+        /* --- 按钮 3D 样式修改 --- */
         button.btn {
-            background: #fff; border: 2px solid var(--ink-color); padding: 8px 0;
-            font-family: inherit; font-weight: 800; cursor: pointer;
-            box-shadow: 2px 2px 0 var(--ink-color); font-size: 0.85rem; border-radius: 2px;
+            border: none;
+            border-radius: 8px; /* 圆角 */
+            padding: 10px 0;
+            font-family: inherit;
+            font-weight: 800;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #fff;
+            position: relative;
+            transition: all 0.1s ease;
             white-space: nowrap;
+            /* 3D 阴影 */
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2), 0 5px 5px rgba(0,0,0,0.1);
+            transform: translateY(0);
         }
-        button.btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-color); }
-        button.btn:disabled { opacity: 0.5; background: #eee; box-shadow: none; transform: translate(1px, 1px); }
         
-        #btn-rot { background: #e3f2fd; color: #1565c0; }
-        #btn-confirm { background: #e8f5e9; color: #2e7d32; font-weight: 900; }
-        .btn-action { background: #fff; }
+        /* 点击动效 */
+        button.btn:active:not(:disabled) {
+            transform: translateY(4px); /* 下压效果 */
+            box-shadow: 0 0 0 rgba(0,0,0,0.2), 0 0 0 rgba(0,0,0,0.1); /* 阴影消失 */
+        }
+        
+        button.btn:disabled { 
+            background-color: #cbd5e1; 
+            color: #94a3b8; 
+            box-shadow: none; 
+            transform: translateY(2px);
+            cursor: not-allowed;
+        }
 
+        /* 按钮颜色区分 */
+        #btn-rot { background-color: var(--btn-blue); box-shadow: 0 4px 0 var(--btn-blue-dark), 0 5px 5px rgba(0,0,0,0.2); }
+        #btn-undo { background-color: var(--btn-orange); box-shadow: 0 4px 0 var(--btn-orange-dark), 0 5px 5px rgba(0,0,0,0.2); }
+        #btn-reset { background-color: var(--btn-orange); box-shadow: 0 4px 0 var(--btn-orange-dark), 0 5px 5px rgba(0,0,0,0.2); }
+        #btn-rand { background-color: var(--btn-purple); box-shadow: 0 4px 0 var(--btn-purple-dark), 0 5px 5px rgba(0,0,0,0.2); }
+        #btn-confirm { background-color: var(--btn-green); box-shadow: 0 4px 0 var(--btn-green-dark), 0 5px 5px rgba(0,0,0,0.2); }
+        
+        #btn-restart { 
+            background-color: var(--btn-green); 
+            box-shadow: 0 4px 0 var(--btn-green-dark), 0 5px 5px rgba(0,0,0,0.2); 
+            color: #fff !important; /* 强制覆盖内联样式 */
+            border: none;
+        }
+
+        /* 弹窗内的按钮样式覆盖 */
+        .modal-content .btn {
+            background-color: var(--btn-blue);
+            box-shadow: 0 4px 0 var(--btn-blue-dark);
+            color: #fff !important;
+            border: none;
+            margin-bottom: 15px;
+        }
+        .modal-content .btn:active { transform: translateY(4px); box-shadow: none; }
+        
         /* --- 8. 模态框 --- */
         .modal-overlay {
-            position: fixed; inset: 0; background: rgba(44, 62, 80, 0.95);
+            position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7);
             display: flex; justify-content: center; align-items: center; z-index: 100;
+            backdrop-filter: blur(2px);
         }
         .hidden { display: none !important; }
         .modal-content {
-            background: #fff; border: 4px solid #000; padding: 25px;
+            background: #fff; 
+            border: none;
+            border-radius: 12px;
+            padding: 30px;
             width: 90%; max-width: 450px; text-align: center;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3); pointer-events: auto; 
         }
-        .modal-title { font-size: 1.6rem; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; font-weight: 900; }
+        .modal-title { font-size: 1.6rem; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; font-weight: 900; color: #333; }
         .rules-container { text-align: left; max-height: 60vh; overflow-y: auto; padding: 0 10px; }
         .rule-block { margin-bottom: 15px; }
         .rule-title { font-weight: 900; color: var(--red-pen); font-size: 1.05rem; margin-bottom: 4px; display: flex; align-items: center; }
@@ -240,6 +340,9 @@
         .rule-desc { margin: 0; padding-left: 18px; font-size: 0.95rem; color: #555; line-height: 1.5; }
         .rule-highlight { color: #000; font-weight: bold; background: #fff8e1; padding: 0 4px; }
         .rule-close-hint { margin-top: 20px; font-size: 0.9rem; color: #777; font-weight: bold; border-top: 1px dashed #ccc; padding-top: 10px;}
+        
+        .gameover-actions { display: flex; gap: 10px; justify-content: center; width: 100%; margin-top: 20px; }
+        .btn-full { width: 100%; padding: 12px; }
     </style>
 </head>
 <body>
@@ -253,14 +356,16 @@
     <div id="red-wrapper" class="board-wrapper red-theme">
         <div class="board-header">
             <span id="red-name">红方</span>
-            <span id="red-score">战舰: 5</span>
+            <!-- 修改点：文案更新 -->
+            <span id="red-score">剩余战舰数量: 5</span>
         </div>
         <div id="red-board" class="board"></div>
     </div>
     <div id="blue-wrapper" class="board-wrapper blue-theme">
         <div class="board-header">
             <span id="blue-name">蓝方</span>
-            <span id="blue-score">战舰: 5</span>
+            <!-- 修改点：文案更新 -->
+            <span id="blue-score">剩余战舰数量: 5</span>
         </div>
         <div id="blue-board" class="board"></div>
     </div>
@@ -280,14 +385,14 @@
         </div>
     </div>
     
-    <button class="btn" id="btn-restart" style="display:none; max-width:200px; background:#e8f5e9; color:#2e7d32;" onclick="location.reload()">再来一局</button>
+    <button class="btn" id="btn-restart" style="display:none; width:100%; max-width:250px; font-size:1.1rem; padding:12px;" onclick="location.reload()">再来一局</button>
 </div>
 
 <div id="modal-menu" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-title">作战指挥部</div>
-        <button class="btn" style="margin-bottom:12px; padding:12px;" onclick="initGame('pve')">人机演习 (PvE)</button>
-        <button class="btn" style="padding:12px;" onclick="initGame('pvp')">双人对决 (PvP)</button>
+        <button class="btn btn-full" style="background-color: var(--btn-blue); box-shadow: 0 4px 0 var(--btn-blue-dark);" onclick="initGame('pve')">人机演习 (PvE)</button>
+        <button class="btn btn-full" style="background-color: var(--btn-purple); box-shadow: 0 4px 0 var(--btn-purple-dark);" onclick="initGame('pvp')">双人对决 (PvP)</button>
     </div>
 </div>
 
@@ -295,7 +400,7 @@
     <div class="modal-content">
         <h2 class="modal-title" style="color:var(--red-pen)">⚠️ 军事机密 ⚠️</h2>
         <p id="transition-msg" style="margin-bottom:20px; font-size:1.1rem; font-weight:bold;">...</p>
-        <button class="btn" style="background:#e8f5e9; color:#2e7d32; padding:10px;" onclick="endTransition()">确认 / 继续</button>
+        <button class="btn btn-full" style="background-color: var(--btn-green); box-shadow: 0 4px 0 var(--btn-green-dark);" onclick="endTransition()">确认 / 继续</button>
     </div>
 </div>
 
@@ -329,7 +434,10 @@
     <div class="modal-content">
         <div class="modal-title" id="winner-title">战役结束</div>
         <p id="winner-msg" style="margin-bottom:20px; font-size:1.1rem;"></p>
-        <button class="btn" style="padding:10px;" onclick="location.reload()">重新整编</button>
+        <div class="gameover-actions">
+            <button class="btn" style="flex:1; background-color: var(--btn-gray); box-shadow: 0 4px 0 var(--btn-gray-dark); color: #333 !important;" onclick="reviewGame()">查看战场</button>
+            <button class="btn" style="flex:1; background-color: var(--btn-green); box-shadow: 0 4px 0 var(--btn-green-dark);" onclick="location.reload()">重新整编</button>
+        </div>
     </div>
 </div>
 
@@ -339,7 +447,7 @@
         mode: null, phase: 'menu', turn: 'red', placing: 'red', isHorizontal: true, selectedShipId: null,
         redGrid: [], blueGrid: [], redShips: [], blueShips: [],
         pvePlayer: 'red',
-        aiStack: [], // AI 待攻击队列
+        aiStack: [], 
         nextTransitionAction: null
     };
 
@@ -349,7 +457,7 @@
         dock: document.getElementById('ship-dock'), placeUI: document.getElementById('placement-ui'),
         msg: document.getElementById('message-area'), btnConfirm: document.getElementById('btn-confirm'),
         modalMenu: document.getElementById('modal-menu'), modalTrans: document.getElementById('modal-transition'),
-        modalOver: document.getElementById('modal-gameover')
+        modalOver: document.getElementById('modal-gameover'), btnRestart: document.getElementById('btn-restart')
     };
 
     function createShipShapeHTML(cellIndex, shipSize, isHorizontal) {
@@ -681,8 +789,9 @@
     function updateScore() {
         const r=STATE.redShips.filter(s=>!s.sunk).length;
         const b=STATE.blueShips.filter(s=>!s.sunk).length;
-        document.getElementById('red-score').textContent=`战舰: ${r}`;
-        document.getElementById('blue-score').textContent=`战舰: ${b}`;
+        // 修改点：文案更新
+        document.getElementById('red-score').textContent=`剩余战舰数量: ${r}`;
+        document.getElementById('blue-score').textContent=`剩余战舰数量: ${b}`;
     }
     function checkWin(loser) {
         const ships=loser==='red'?STATE.redShips:STATE.blueShips;
@@ -691,51 +800,41 @@
             const winner=loser==='red'?'蓝方':'红方';
             document.getElementById('winner-msg').textContent=`${winner} 取得最终胜利！`;
             document.getElementById('winner-title').style.color=loser==='red'?'var(--blue-pen)':'var(--red-pen)';
+            
+            // 游戏结束时强制揭示所有船只
+            els.redBoard.classList.add('show-ships');
+            els.blueBoard.classList.add('show-ships');
         }
+    }
+
+    function reviewGame() {
+        els.modalOver.classList.add('hidden');
+        els.msg.textContent = "战场复盘模式 - 游戏结束";
+        els.msg.style.color = "#333";
+        els.btnRestart.style.display = 'block';
+        
+        els.redWrapper.classList.remove('visually-hidden');
+        els.blueWrapper.classList.remove('visually-hidden');
     }
 
     /* --- AI 核心逻辑 --- */
     
-    // 获取对手剩余最小船只尺寸
     function getMinFloatingShipSize(owner) {
         const ships = owner === 'red' ? STATE.redShips : STATE.blueShips;
         const floating = ships.filter(s => !s.sunk);
-        if (floating.length === 0) return 2; // 防御性代码
+        if (floating.length === 0) return 2;
         return Math.min(...floating.map(s => s.size));
     }
 
-    // 检查某个方向上是否有足够的空间容纳最小船只
-    // x,y: 候选攻击点的坐标
-    // grid: 棋盘数据
-    // minSize: 最小船尺寸
-    // axis: 'H' (横向检查) 或 'V' (纵向检查)
     function hasEnoughSpace(x, y, grid, minSize, axis) {
         let count = 0;
-        // 注意：这里的空间包含“未探测(0)”和“命中(3)”，因为船可能藏在已命中的点旁边。
-        // “脱靶(2)”是墙壁。
         
         if (axis === 'H') {
-            // 向左扫描
-            for (let i = x; i >= 0; i--) {
-                if (grid[y][i] === 2) break; // 遇到脱靶点停止
-                count++;
-            }
-            // 向右扫描 (从x+1开始避免重复计数x点)
-            for (let i = x + 1; i < 10; i++) {
-                if (grid[y][i] === 2) break;
-                count++;
-            }
-        } else { // Vertical
-             // 向上扫描
-             for (let i = y; i >= 0; i--) {
-                if (grid[i][x] === 2) break;
-                count++;
-            }
-            // 向下扫描
-            for (let i = y + 1; i < 10; i++) {
-                if (grid[i][x] === 2) break;
-                count++;
-            }
+            for (let i = x; i >= 0; i--) { if (grid[y][i] === 2) break; count++; }
+            for (let i = x + 1; i < 10; i++) { if (grid[y][i] === 2) break; count++; }
+        } else {
+             for (let i = y; i >= 0; i--) { if (grid[i][x] === 2) break; count++; }
+            for (let i = y + 1; i < 10; i++) { if (grid[i][x] === 2) break; count++; }
         }
         return count >= minSize;
     }
@@ -745,10 +844,7 @@
         const ships = targetOwner==='red'?STATE.redShips:STATE.blueShips;
         STATE.aiStack = [];
 
-        // 1. 获取最小存活船只尺寸
         const minSize = getMinFloatingShipSize(targetOwner);
-
-        // 2. 找出所有“已命中”但“不属于已沉没船只”的点
         const activeHits = [];
         for(let y=0; y<10; y++){
             for(let x=0; x<10; x++){
@@ -766,25 +862,20 @@
 
         if(activeHits.length === 0) return; 
 
-        // 3. 策略：连线检查与空间过滤
         let foundLine = false;
 
-        // 检查是否有两点共线
         for(let i=0; i<activeHits.length; i++) {
             for(let j=i+1; j<activeHits.length; j++) {
                 const p1 = activeHits[i];
                 const p2 = activeHits[j];
                 
-                // 纵向共线
                 if(p1.x === p2.x && Math.abs(p1.y - p2.y) === 1) {
                     foundLine = true;
-                    // 尝试添加上下两端，必须传入 'V' 轴做空间检查
                     tryAddValidNeighbor(p1.x, p1.y - 1, grid, minSize, 'V');
                     tryAddValidNeighbor(p2.x, p2.y + 1, grid, minSize, 'V');
                     tryAddValidNeighbor(p1.x, p1.y + 1, grid, minSize, 'V');
                     tryAddValidNeighbor(p2.x, p2.y - 1, grid, minSize, 'V');
                 }
-                // 横向共线
                 else if(p1.y === p2.y && Math.abs(p1.x - p2.x) === 1) {
                     foundLine = true;
                     tryAddValidNeighbor(p1.x - 1, p1.y, grid, minSize, 'H');
@@ -795,13 +886,10 @@
             }
         }
 
-        // 如果没有发现连线，对孤立点进行十字搜索，但加上空间校验
         if(!foundLine) {
             activeHits.forEach(p => {
-                // 上下尝试：用 'V' 轴校验
                 tryAddValidNeighbor(p.x, p.y-1, grid, minSize, 'V');
                 tryAddValidNeighbor(p.x, p.y+1, grid, minSize, 'V');
-                // 左右尝试：用 'H' 轴校验
                 tryAddValidNeighbor(p.x-1, p.y, grid, minSize, 'H');
                 tryAddValidNeighbor(p.x+1, p.y, grid, minSize, 'H');
             });
@@ -810,11 +898,8 @@
 
     function tryAddValidNeighbor(x, y, grid, minSize, axis) {
         if(x>=0 && x<10 && y>=0 && y<10) {
-            // 只有 未知(0) 的格子才值得炸
             if(grid[y][x] <= 1) {
-                // 关键修复：检查该点所在轴线是否有足够空间容纳最小船只
                 if(hasEnoughSpace(x, y, grid, minSize, axis)) {
-                    // 避免重复
                     if(!STATE.aiStack.some(t => t.x===x && t.y===y)) {
                         STATE.aiStack.push({x, y});
                     }
@@ -829,20 +914,16 @@
         
         let tx, ty;
 
-        // 1. 优先尝试 Stack 中的目标
         while(STATE.aiStack.length > 0) {
             const t = STATE.aiStack.pop();
-            // 再次检查是否合法（可能已经被之前的连击炸过了）
             if(grid[t.y][t.x] <= 1) {
                 tx = t.x; ty = t.y;
                 break;
             }
         }
 
-        // 2. 随机模式 (Hunt Mode)
         if(tx === undefined) {
             let candidates = [];
-            // 优化：优先攻击棋盘黑白格位置 (Parity Hunting)，因为最小船是2格
             for(let y=0; y<10; y++) {
                 for(let x=0; x<10; x++) {
                     if(grid[y][x] <= 1 && (x+y)%2 === 0) {
