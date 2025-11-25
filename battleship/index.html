@@ -1,10 +1,10 @@
-<!-- START OF FILE 海战棋v4.html -->
+<!-- START OF FILE 海战棋v4_final_fix.html -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>海战棋 (by Arthur) - V4</title>
+    <title>海战棋 (by Arthur) - V4 Intelligent</title>
     <style>
         /* --- 1. 全局设计 --- */
         :root {
@@ -21,7 +21,6 @@
             font-family: "Courier New", Courier, "Microsoft YaHei", monospace;
             background-color: var(--bg-paper);
             margin: 0; padding: 0; 
-            /* 【修改点1】允许Body原生滚动，确保绝对不会截断内容 */
             min-height: 100vh;
             color: var(--ink-color);
             overflow-x: hidden;
@@ -35,7 +34,7 @@
             flex-shrink: 0; background: #fff; border-bottom: 3px solid var(--ink-color);
             padding: 10px 20px; display: flex; justify-content: center; align-items: center;
             z-index: 50; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            position: sticky; top: 0; /* 头部吸顶 */
+            position: sticky; top: 0; 
         }
         h1 { margin: 0; font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
         .btn-help { border: 2px solid var(--ink-color); background: transparent; border-radius: 50%; width: 28px; height: 28px; font-weight: 900; margin-left: 15px; cursor: pointer; font-size: 1.1rem; }
@@ -43,43 +42,27 @@
         /* --- 3. 游戏主容器 --- */
         #game-container {
             flex: 1; 
-            /* 【修改点1】移除内部滚动限制，跟随body滚动 */
             display: flex; justify-content: center; align-items: flex-start;
             padding: 20px; gap: 40px; flex-wrap: wrap; align-content: flex-start;
-            /* 桌面端默认底部留白 */
             padding-bottom: 100px; 
         }
 
         .visually-hidden { display: none !important; }
 
-        /* --- 针对手机竖屏的优化 --- */
         @media (max-width: 768px) {
             #game-container {
-                display: block; /* 竖向堆叠 */
+                display: block; 
                 padding: 10px; 
-                /* 【修改点1】巨大的底部垫片，等于 Dock 高度 + 缓冲，确保能滑到底 */
                 padding-bottom: 320px; 
             }
             .board-wrapper { width: 100%; max-width: 400px; margin: 0 auto 30px auto; }
-            
-            /* Dock 固定底部 */
             #dock-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); }
         }
 
-        /* --- 针对手机横屏的优化 --- */
         @media (max-height: 600px) and (orientation: landscape) {
-            #game-container {
-                padding-bottom: 40px; 
-                display: flex; 
-            }
-            #dock-container {
-                position: relative; 
-                bottom: auto;
-                border-top: 3px solid var(--ink-color);
-                box-shadow: none;
-                margin-top: 20px;
-            }
-            header { position: relative; } /* 横屏头部不吸顶，省空间 */
+            #game-container { padding-bottom: 40px; display: flex; }
+            #dock-container { position: relative; bottom: auto; border-top: 3px solid var(--ink-color); box-shadow: none; margin-top: 20px; }
+            header { position: relative; } 
         }
 
         @media (min-width: 769px) {
@@ -116,57 +99,39 @@
         }
         .cell { border: 1px solid rgba(0,0,0,0.06); position: relative; cursor: crosshair; }
 
-        /* --- 5. 舰艇样式 (【修改点2】一体化设计) --- */
+        /* --- 5. 舰艇样式 SVG --- */
         .ship-shape {
             position: absolute; 
-            /* 稍微外扩，确保线条连接处覆盖网格线 */
             top: -1px; bottom: -1px; left: -1px; right: -1px;
             z-index: 5; pointer-events: none;
             background-size: 100% 100%; background-repeat: no-repeat; display: none; 
         }
         .in-dock .ship-shape, .board.show-ships .cell.ship .ship-shape, .cell.ship.sunk .ship-shape { display: block; }
 
-        /* 
-           SVG重绘逻辑：
-           Bow: 底部开口 (M...L...L... 无 Z)，让线条可以延伸到下一个格子
-           Body: 上下开口，只画左右两条线
-           Stern: 顶部开口
-           Fill: 白色，用于遮挡下面的网格
-        */
+        /* 基础形状 */
+        .shape-bow { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 102 L50 5 L90 102' fill='white' stroke='%23333' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M50 15 L50 60' stroke='%23333' stroke-width='4'/%3E%3Ccircle cx='50' cy='80' r='10' stroke='%23333' stroke-width='3' fill='none'/%3E%3C/svg%3E"); }
+        .shape-body { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='0' y='-5' width='100' height='110' fill='white' stroke='none'/%3E%3Cline x1='10' y1='-5' x2='10' y2='105' stroke='%23333' stroke-width='6'/%3E%3Cline x1='90' y1='-5' x2='90' y2='105' stroke='%23333' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='18' stroke='%23333' stroke-width='4' fill='none'/%3E%3Cline x1='10' y1='20' x2='90' y2='20' stroke='%23333' stroke-width='2'/%3E%3Cline x1='10' y1='80' x2='90' y2='80' stroke='%23333' stroke-width='2'/%3E%3C/svg%3E"); }
+        .shape-stern { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 -2 L10 50 Q50 105 90 50 L90 -2' fill='white' stroke='%23333' stroke-width='6'/%3E%3Cline x1='25' y1='20' x2='75' y2='20' stroke='%23333' stroke-width='3'/%3E%3Cline x1='35' y1='40' x2='65' y2='40' stroke='%23333' stroke-width='3'/%3E%3C/svg%3E"); }
 
-        /* 通用定义：Blue (默认) */
-        /* Bow: 倒V型，底部不封口 */
-        .shape-bow { 
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 102 L50 5 L90 102' fill='white' stroke='%23333' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M50 15 L50 60' stroke='%23333' stroke-width='4'/%3E%3Ccircle cx='50' cy='80' r='10' stroke='%23333' stroke-width='3' fill='none'/%3E%3C/svg%3E"); 
-        }
-        /* Body: 矩形填充 + 左右两条线，上下无边框 */
-        .shape-body { 
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='0' y='-5' width='100' height='110' fill='white' stroke='none'/%3E%3Cline x1='10' y1='-5' x2='10' y2='105' stroke='%23333' stroke-width='6'/%3E%3Cline x1='90' y1='-5' x2='90' y2='105' stroke='%23333' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='18' stroke='%23333' stroke-width='4' fill='none'/%3E%3Cline x1='10' y1='20' x2='90' y2='20' stroke='%23333' stroke-width='2'/%3E%3Cline x1='10' y1='80' x2='90' y2='80' stroke='%23333' stroke-width='2'/%3E%3C/svg%3E"); 
-        }
-        /* Stern: U型，顶部不封口 */
-        .shape-stern { 
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 -2 L10 50 Q50 105 90 50 L90 -2' fill='white' stroke='%23333' stroke-width='6'/%3E%3Cline x1='25' y1='20' x2='75' y2='20' stroke='%23333' stroke-width='3'/%3E%3Cline x1='35' y1='40' x2='65' y2='40' stroke='%23333' stroke-width='3'/%3E%3C/svg%3E"); 
-        }
-
-        /* 蓝色墨水 (Blue Pen) */
-        .blue-theme .shape-bow, .dock-ship:not(.selected) .shape-bow {
+        /* 蓝色主题 (Blue Pen) */
+        .blue-theme .shape-bow, .board-wrapper.blue-theme .cell .shape-bow {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 102 L50 5 L90 102' fill='white' stroke='%23304ffe' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M50 15 L50 60' stroke='%23304ffe' stroke-width='4'/%3E%3Ccircle cx='50' cy='80' r='10' stroke='%23304ffe' stroke-width='3' fill='none'/%3E%3C/svg%3E");
         }
-        .blue-theme .shape-body, .dock-ship:not(.selected) .shape-body {
+        .blue-theme .shape-body, .board-wrapper.blue-theme .cell .shape-body {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='0' y='-5' width='100' height='110' fill='white' stroke='none'/%3E%3Cline x1='10' y1='-5' x2='10' y2='105' stroke='%23304ffe' stroke-width='6'/%3E%3Cline x1='90' y1='-5' x2='90' y2='105' stroke='%23304ffe' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='18' stroke='%23304ffe' stroke-width='4' fill='none'/%3E%3Cline x1='10' y1='20' x2='90' y2='20' stroke='%23304ffe' stroke-width='2'/%3E%3Cline x1='10' y1='80' x2='90' y2='80' stroke='%23304ffe' stroke-width='2'/%3E%3C/svg%3E");
         }
-        .blue-theme .shape-stern, .dock-ship:not(.selected) .shape-stern {
+        .blue-theme .shape-stern, .board-wrapper.blue-theme .cell .shape-stern {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 -2 L10 50 Q50 105 90 50 L90 -2' fill='white' stroke='%23304ffe' stroke-width='6'/%3E%3Cline x1='25' y1='20' x2='75' y2='20' stroke='%23304ffe' stroke-width='3'/%3E%3Cline x1='35' y1='40' x2='65' y2='40' stroke='%23304ffe' stroke-width='3'/%3E%3C/svg%3E");
         }
 
-        /* 红色墨水 (Red Pen) */
-        .red-theme .shape-bow, .dock-ship.selected .shape-bow {
+        /* 红色主题 (Red Pen) */
+        .red-theme .shape-bow, .board-wrapper.red-theme .cell .shape-bow {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 102 L50 5 L90 102' fill='white' stroke='%23d32f2f' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M50 15 L50 60' stroke='%23d32f2f' stroke-width='4'/%3E%3Ccircle cx='50' cy='80' r='10' stroke='%23d32f2f' stroke-width='3' fill='none'/%3E%3C/svg%3E");
         }
-        .red-theme .shape-body, .dock-ship.selected .shape-body {
+        .red-theme .shape-body, .board-wrapper.red-theme .cell .shape-body {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='0' y='-5' width='100' height='110' fill='white' stroke='none'/%3E%3Cline x1='10' y1='-5' x2='10' y2='105' stroke='%23d32f2f' stroke-width='6'/%3E%3Cline x1='90' y1='-5' x2='90' y2='105' stroke='%23d32f2f' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='18' stroke='%23d32f2f' stroke-width='4' fill='none'/%3E%3Cline x1='10' y1='20' x2='90' y2='20' stroke='%23d32f2f' stroke-width='2'/%3E%3Cline x1='10' y1='80' x2='90' y2='80' stroke='%23d32f2f' stroke-width='2'/%3E%3C/svg%3E");
         }
-        .red-theme .shape-stern, .dock-ship.selected .shape-stern {
+        .red-theme .shape-stern, .board-wrapper.red-theme .cell .shape-stern {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M10 -2 L10 50 Q50 105 90 50 L90 -2' fill='white' stroke='%23d32f2f' stroke-width='6'/%3E%3Cline x1='25' y1='20' x2='75' y2='20' stroke='%23d32f2f' stroke-width='3'/%3E%3Cline x1='35' y1='40' x2='65' y2='40' stroke='%23d32f2f' stroke-width='3'/%3E%3C/svg%3E");
         }
 
@@ -237,7 +202,9 @@
             padding: 4px; border: 1px solid #ccc; border-radius: 3px; 
             background: #f0f0f0; cursor: pointer; transition: 0.1s;
         }
-        .dock-ship.selected { background: #fff; border: 2px solid var(--red-pen); transform: scale(1.02); }
+        .red-theme .dock-ship.selected { background: #fff; border: 2px solid var(--red-pen); transform: scale(1.02); }
+        .blue-theme .dock-ship.selected { background: #fff; border: 2px solid var(--blue-pen); transform: scale(1.02); }
+
         .dock-cell { width: 18px; height: 18px; position: relative; }
         .dock-cell:last-child { margin-right: 0; }
 
@@ -372,7 +339,7 @@
         mode: null, phase: 'menu', turn: 'red', placing: 'red', isHorizontal: true, selectedShipId: null,
         redGrid: [], blueGrid: [], redShips: [], blueShips: [],
         pvePlayer: 'red',
-        ai: { mode: 'hunt', stack: [], currentHits: [] },
+        aiStack: [], // AI 待攻击队列
         nextTransitionAction: null
     };
 
@@ -441,6 +408,10 @@
         els.redWrapper.classList.toggle('active-turn', isRed); els.blueWrapper.classList.toggle('active-turn', !isRed);
         els.msg.textContent = `${isRed?'红方':'蓝方'}部署：请选中舰艇，再点击海域放置`;
         els.msg.style.color = isRed ? "var(--red-pen)" : "var(--blue-pen)";
+        
+        els.dock.classList.remove('red-theme', 'blue-theme');
+        els.dock.classList.add(isRed ? 'red-theme' : 'blue-theme');
+
         renderDock();
     }
 
@@ -591,7 +562,6 @@
     function startCombat() {
         STATE.phase='combat'; els.placeUI.classList.add('hidden'); els.dock.style.display='none';
         
-        // 恢复所有棋盘可见
         els.redWrapper.classList.remove('visually-hidden');
         els.blueWrapper.classList.remove('visually-hidden');
         
@@ -635,7 +605,8 @@
         if(grid[y][x]===1) {
             grid[y][x]=3; cell.classList.add('hit');
             
-            if(STATE.mode === 'pve' && STATE.turn !== STATE.pvePlayer) {
+            const isPveAi = (STATE.mode==='pve' && STATE.turn!==STATE.pvePlayer);
+            if (isPveAi) {
                 els.msg.textContent = "敌方命中！它将继续开火！";
             } else {
                 els.msg.textContent = "命中！继续开火！";
@@ -644,21 +615,17 @@
             const sunk=checkSunk(targetOwner); checkWin(targetOwner);
             if(STATE.phase==='gameover') return;
             
-            if(STATE.mode==='pve' && STATE.turn!==STATE.pvePlayer) {
-                if(sunk) { STATE.ai.mode='hunt'; STATE.ai.stack=[]; STATE.ai.currentHits=[]; }
-                else { STATE.ai.currentHits.push({x,y}); updateAiStack(targetOwner); }
+            if(isPveAi) {
+                rebuildAiStack(targetOwner);
                 setTimeout(processAiTurn, 1000);
             }
             return true;
         } else {
             grid[y][x]=2; cell.classList.add('miss');
             
-            const isAiTurn = (STATE.mode === 'pve' && STATE.turn !== STATE.pvePlayer);
-            if (isAiTurn) {
-                els.msg.textContent = "敌方未命中..."; 
-            } else {
-                els.msg.textContent = "未命中...";
-            }
+            const isPveAi = (STATE.mode === 'pve' && STATE.turn !== STATE.pvePlayer);
+            if (isPveAi) els.msg.textContent = "敌方未命中..."; 
+            else els.msg.textContent = "未命中...";
 
             if(STATE.mode==='pvp') {
                 setTimeout(()=>showTransition(STATE.turn==='red'?'switch_blue':'switch_red'), 800);
@@ -671,7 +638,10 @@
                     }, 1000);
                 } else {
                     switchTurn(next);
-                    if(next!==STATE.pvePlayer) setTimeout(processAiTurn, 1000);
+                    if(next!==STATE.pvePlayer) {
+                        rebuildAiStack(targetOwner==='red'?'blue':'red'); 
+                        setTimeout(processAiTurn, 1000);
+                    }
                 }
             }
             return false;
@@ -683,11 +653,13 @@
         const grid=owner==='red'?STATE.redGrid:STATE.blueGrid;
         const boardEl=owner==='red'?els.redBoard:els.blueBoard;
         let anySunk=false;
+        let justSunk=false;
+
         ships.forEach(ship => {
             if(!ship.sunk) {
                 if(ship.coords.every(c=>grid[c.y][c.x]===3)) {
-                    ship.sunk=true; anySunk=true;
-                    els.msg.textContent="敌舰沉没！";
+                    ship.sunk=true; anySunk=true; justSunk=true;
+                    
                     ship.coords.forEach(c=>{
                         const cell = boardEl.querySelector(`.cell[data-x="${c.x}"][data-y="${c.y}"]`);
                         cell.classList.add('sunk');
@@ -699,6 +671,11 @@
                 }
             }
         });
+        
+        if(justSunk) {
+            els.msg.textContent = "敌舰沉没！获得连击奖励，请继续轰炸！";
+        }
+        
         return anySunk;
     }
     function updateScore() {
@@ -717,46 +694,175 @@
         }
     }
 
-    function updateAiStack(targetOwner) {
-        STATE.ai.mode='target';
-        const hits=STATE.ai.currentHits;
-        const grid=targetOwner==='red'?STATE.redGrid:STATE.blueGrid;
-        STATE.ai.stack=[];
+    /* --- AI 核心逻辑 --- */
+    
+    // 获取对手剩余最小船只尺寸
+    function getMinFloatingShipSize(owner) {
+        const ships = owner === 'red' ? STATE.redShips : STATE.blueShips;
+        const floating = ships.filter(s => !s.sunk);
+        if (floating.length === 0) return 2; // 防御性代码
+        return Math.min(...floating.map(s => s.size));
+    }
+
+    // 检查某个方向上是否有足够的空间容纳最小船只
+    // x,y: 候选攻击点的坐标
+    // grid: 棋盘数据
+    // minSize: 最小船尺寸
+    // axis: 'H' (横向检查) 或 'V' (纵向检查)
+    function hasEnoughSpace(x, y, grid, minSize, axis) {
+        let count = 0;
+        // 注意：这里的空间包含“未探测(0)”和“命中(3)”，因为船可能藏在已命中的点旁边。
+        // “脱靶(2)”是墙壁。
         
-        if(hits.length===1) {
-            const {x,y}=hits[0];
-            [{x,y:y-1},{x,y:y+1},{x:x-1,y},{x:x-1,y},{x:x+1,y}].forEach(n=>{
-                if(isValid(n.x,n.y,grid)) STATE.ai.stack.push(n);
+        if (axis === 'H') {
+            // 向左扫描
+            for (let i = x; i >= 0; i--) {
+                if (grid[y][i] === 2) break; // 遇到脱靶点停止
+                count++;
+            }
+            // 向右扫描 (从x+1开始避免重复计数x点)
+            for (let i = x + 1; i < 10; i++) {
+                if (grid[y][i] === 2) break;
+                count++;
+            }
+        } else { // Vertical
+             // 向上扫描
+             for (let i = y; i >= 0; i--) {
+                if (grid[i][x] === 2) break;
+                count++;
+            }
+            // 向下扫描
+            for (let i = y + 1; i < 10; i++) {
+                if (grid[i][x] === 2) break;
+                count++;
+            }
+        }
+        return count >= minSize;
+    }
+
+    function rebuildAiStack(targetOwner) {
+        const grid = targetOwner==='red'?STATE.redGrid:STATE.blueGrid;
+        const ships = targetOwner==='red'?STATE.redShips:STATE.blueShips;
+        STATE.aiStack = [];
+
+        // 1. 获取最小存活船只尺寸
+        const minSize = getMinFloatingShipSize(targetOwner);
+
+        // 2. 找出所有“已命中”但“不属于已沉没船只”的点
+        const activeHits = [];
+        for(let y=0; y<10; y++){
+            for(let x=0; x<10; x++){
+                if(grid[y][x] === 3) {
+                    let isSunkShipPart = false;
+                    for(let s of ships) {
+                        if(s.sunk && s.coords.some(c => c.x===x && c.y===y)) {
+                            isSunkShipPart = true; break;
+                        }
+                    }
+                    if(!isSunkShipPart) activeHits.push({x, y});
+                }
+            }
+        }
+
+        if(activeHits.length === 0) return; 
+
+        // 3. 策略：连线检查与空间过滤
+        let foundLine = false;
+
+        // 检查是否有两点共线
+        for(let i=0; i<activeHits.length; i++) {
+            for(let j=i+1; j<activeHits.length; j++) {
+                const p1 = activeHits[i];
+                const p2 = activeHits[j];
+                
+                // 纵向共线
+                if(p1.x === p2.x && Math.abs(p1.y - p2.y) === 1) {
+                    foundLine = true;
+                    // 尝试添加上下两端，必须传入 'V' 轴做空间检查
+                    tryAddValidNeighbor(p1.x, p1.y - 1, grid, minSize, 'V');
+                    tryAddValidNeighbor(p2.x, p2.y + 1, grid, minSize, 'V');
+                    tryAddValidNeighbor(p1.x, p1.y + 1, grid, minSize, 'V');
+                    tryAddValidNeighbor(p2.x, p2.y - 1, grid, minSize, 'V');
+                }
+                // 横向共线
+                else if(p1.y === p2.y && Math.abs(p1.x - p2.x) === 1) {
+                    foundLine = true;
+                    tryAddValidNeighbor(p1.x - 1, p1.y, grid, minSize, 'H');
+                    tryAddValidNeighbor(p2.x + 1, p2.y, grid, minSize, 'H');
+                    tryAddValidNeighbor(p1.x + 1, p1.y, grid, minSize, 'H');
+                    tryAddValidNeighbor(p2.x - 1, p2.y, grid, minSize, 'H');
+                }
+            }
+        }
+
+        // 如果没有发现连线，对孤立点进行十字搜索，但加上空间校验
+        if(!foundLine) {
+            activeHits.forEach(p => {
+                // 上下尝试：用 'V' 轴校验
+                tryAddValidNeighbor(p.x, p.y-1, grid, minSize, 'V');
+                tryAddValidNeighbor(p.x, p.y+1, grid, minSize, 'V');
+                // 左右尝试：用 'H' 轴校验
+                tryAddValidNeighbor(p.x-1, p.y, grid, minSize, 'H');
+                tryAddValidNeighbor(p.x+1, p.y, grid, minSize, 'H');
             });
-            STATE.ai.stack.sort(()=>Math.random()-0.5);
-        } else {
-            hits.sort((a,b)=>(a.x-b.x)+(a.y-b.y));
-            const f=hits[0], l=hits[hits.length-1];
-            const isV=(f.x===l.x);
-            let cands=[];
-            if(isV) { cands.push({x:f.x,y:f.y-1}); cands.push({x:l.x,y:l.y+1}); }
-            else { cands.push({x:f.x-1,y:f.y}); cands.push({x:l.x+1,y:l.y}); }
-            cands.forEach(c=>{ if(isValid(c.x,c.y,grid)) STATE.ai.stack.push(c); });
         }
     }
-    function isValid(x, y, grid) { return x>=0&&x<10&&y>=0&&y<10&&grid[y][x]<=1; }
+
+    function tryAddValidNeighbor(x, y, grid, minSize, axis) {
+        if(x>=0 && x<10 && y>=0 && y<10) {
+            // 只有 未知(0) 的格子才值得炸
+            if(grid[y][x] <= 1) {
+                // 关键修复：检查该点所在轴线是否有足够空间容纳最小船只
+                if(hasEnoughSpace(x, y, grid, minSize, axis)) {
+                    // 避免重复
+                    if(!STATE.aiStack.some(t => t.x===x && t.y===y)) {
+                        STATE.aiStack.push({x, y});
+                    }
+                }
+            }
+        }
+    }
 
     function processAiTurn() {
         if(STATE.phase!=='combat') return;
         const target=STATE.pvePlayer, grid=target==='red'?STATE.redGrid:STATE.blueGrid;
+        
         let tx, ty;
-        while(STATE.ai.stack.length>0) {
-            const t=STATE.ai.stack.pop();
-            if(grid[t.y][t.x]<=1) { tx=t.x; ty=t.y; break; }
-        }
-        if(tx===undefined) {
-            let att=0; do { tx=Math.floor(Math.random()*10); ty=Math.floor(Math.random()*10); att++; }
-            while(grid[ty][tx]>1 && att<200);
-            if(grid[ty][tx]>1) {
-                for(let Y=0;Y<10;Y++) for(let X=0;X<10;X++) if(grid[Y][X]<=1) {tx=X;ty=Y;}
+
+        // 1. 优先尝试 Stack 中的目标
+        while(STATE.aiStack.length > 0) {
+            const t = STATE.aiStack.pop();
+            // 再次检查是否合法（可能已经被之前的连击炸过了）
+            if(grid[t.y][t.x] <= 1) {
+                tx = t.x; ty = t.y;
+                break;
             }
         }
-        fireShot(target, tx, ty);
+
+        // 2. 随机模式 (Hunt Mode)
+        if(tx === undefined) {
+            let candidates = [];
+            // 优化：优先攻击棋盘黑白格位置 (Parity Hunting)，因为最小船是2格
+            for(let y=0; y<10; y++) {
+                for(let x=0; x<10; x++) {
+                    if(grid[y][x] <= 1 && (x+y)%2 === 0) {
+                        candidates.push({x,y});
+                    }
+                }
+            }
+            if(candidates.length === 0) {
+                for(let y=0; y<10; y++) for(let x=0; x<10; x++) if(grid[y][x] <= 1) candidates.push({x,y});
+            }
+
+            if(candidates.length > 0) {
+                const rand = candidates[Math.floor(Math.random() * candidates.length)];
+                tx = rand.x; ty = rand.y;
+            }
+        }
+        
+        if(tx!==undefined) {
+            fireShot(target, tx, ty);
+        }
     }
 </script>
 </body>
