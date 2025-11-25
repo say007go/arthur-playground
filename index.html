@@ -65,7 +65,8 @@
             flex-wrap: wrap;
             justify-content: center;
             gap: 40px;
-            max-width: 1300px; /* 稍微加宽一点以容纳更多卡片 */
+            /* 调整为1000px，确保9个卡片在PC端呈现完美的 3x3 九宫格 */
+            max-width: 1000px; 
             width: 100%;
             margin-bottom: 3rem;
         }
@@ -126,13 +127,14 @@
         .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }         /* 快艇骰子 - 青色 */
         .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }        /* 猜颜色 - 玫红 */
         .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }      /* 四子棋 - 金黄 */
+        /* 黑白棋 - 极昼白 */
+        .game-card.reversi:hover { box-shadow: 0 15px 30px rgba(255, 255, 255, 0.6); }
         .game-card.sudoku:hover { box-shadow: 0 15px 30px rgba(30, 144, 255, 0.4); }      /* 数独 - 智力蓝 */
         .game-card.klotski:hover { box-shadow: 0 15px 30px rgba(255, 165, 0, 0.4); }      /* 华容道 - 琥珀橙 */
         .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }   /* 双陆棋 - 绿色 */
-        /* 海战棋 - 深海蓝 */
-        .game-card.battleship:hover { box-shadow: 0 15px 30px rgba(0, 100, 255, 0.5); }
+        .game-card.battleship:hover { box-shadow: 0 15px 30px rgba(0, 100, 255, 0.5); }     /* 海战棋 - 深海蓝 */
 
-        /* 入场动画序列 */
+        /* 入场动画序列 (9个) */
         .game-card {
             opacity: 0;
             animation: fadeInUp 0.8s ease-out forwards;
@@ -144,7 +146,8 @@
         .game-card:nth-child(5) { animation-delay: 0.5s; }
         .game-card:nth-child(6) { animation-delay: 0.6s; }
         .game-card:nth-child(7) { animation-delay: 0.7s; }
-        .game-card:nth-child(8) { animation-delay: 0.8s; } /* 新增 */
+        .game-card:nth-child(8) { animation-delay: 0.8s; }
+        .game-card:nth-child(9) { animation-delay: 0.9s; } /* 新增 */
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -213,28 +216,35 @@
             <div class="game-desc">经典的连珠策略游戏<br>Connect 4</div>
         </a>
 
-        <!-- 5. 数独 -->
+        <!-- 5. 黑白棋 (新) -->
+        <a href="./reversi/" class="game-card reversi">
+            <div class="icon">⚪</div>
+            <div class="game-title">黑白棋</div>
+            <div class="game-desc">翻转乾坤的智慧<br>Reversi</div>
+        </a>
+
+        <!-- 6. 数独 -->
         <a href="./sudoku/" class="game-card sudoku">
             <div class="icon">🔢</div>
             <div class="game-title">数独</div>
             <div class="game-desc">逻辑推理的数字迷宫<br>Sudoku</div>
         </a>
 
-        <!-- 6. 华容道 -->
+        <!-- 7. 华容道 -->
         <a href="./klotski/" class="game-card klotski">
             <div class="icon">🧩</div>
             <div class="game-title">华容道</div>
             <div class="game-desc">经典的滑块解谜<br>Klotski</div>
         </a>
 
-        <!-- 7. 双陆棋 -->
+        <!-- 8. 双陆棋 -->
         <a href="./backgammon/" class="game-card backgammon">
             <div class="icon">♟️</div>
             <div class="game-title">双陆棋</div>
             <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
         </a>
 
-        <!-- 8. 海战棋 (新) -->
+        <!-- 9. 海战棋 -->
         <a href="./battleship/" class="game-card battleship">
             <div class="icon">⚓</div>
             <div class="game-title">海战棋</div>
