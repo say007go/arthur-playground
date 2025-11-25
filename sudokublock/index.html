@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>数独方块（by Arthur）</title>
+    <style>
+        /* --- 全局样式 & 字体 --- */
+        :root {
+            --bg-wood: #5d4037;
+            --board-bg: #3e2723;
+            --cell-dark: #4e342e;
+            --cell-light: #6d4c41;
+            --block-color: #ffca28;
+            --block-shadow: #c79100;
+            --text-gold: #ffecb3;
+            --shadow-depth: 4px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-wood);
+            background-image: linear-gradient(315deg, #5d4037 0%, #4a3b36 74%);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: var(--text-gold);
+            height: 100vh;
+            overflow-y: auto; /* 允许小屏幕滚动 */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* 顶部对齐，通过margin居中 */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* --- 容器布局 --- */
+        #game-container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            justify-content: center; /* 垂直居中 */
+        }
+
+        /* --- 头部区域 --- */
+        header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 15px;
+            border-radius: 12px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .btn-rules {
+            background: linear-gradient(to bottom, #8d6e63, #5d4037);
+            border: 1px solid #a1887f;
+            color: #fff;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #3e2723;
+            transition: transform 0.1s;
+        }
+        .btn-rules:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #3e2723;
+        }
+
+        /* --- 分数板 --- */
+        #score-board {
+            background: #3e2723;
+            padding: 10px 30px;
+            border-radius: 10px;
+            border: 2px solid #8d6e63;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            color: #fff;
+            text-align: center;
+            min-width: 150px;
+        }
+        #score-label { font-size: 0.8rem; display: block; color: #a1887f; text-transform: uppercase;}
+
+        /* --- 棋盘区域 --- */
+        #board-wrapper {
+            width: 100%;
+            aspect-ratio: 1 / 1; /* 保持正方形 */
+            background: #281815;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 0 15px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            grid-template-rows: repeat(9, 1fr);
+            width: 100%;
+            height: 100%;
+            gap: 2px;
+        }
+
+        .cell {
+            border-radius: 2px;
+            position: relative;
+        }
+
+        /* 3x3 区域着色逻辑 */
+        /* 深色区域: 中间(1,1)及四个角(0,0, 0,2, 2,0, 2,2) */
+        .cell.zone-dark {
+            background-color: var(--cell-dark);
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.3);
+        }
+        /* 浅色区域: 十字架部分 */
+        .cell.zone-light {
+            background-color: var(--cell-light);
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2);
+        }
+
+        /* 放置在棋盘上的方块样式 */
+        .cell.filled {
+            background: linear-gradient(135deg, #ffd54f 0%, #ffb300 100%);
+            box-shadow: inset 2px 2px 0 rgba(255,255,255,0.4), inset -2px -2px 0 rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.4);
+            border-radius: 4px;
+            z-index: 10;
+        }
+        
+        /* 消除动画 */
+        .cell.clearing {
+            animation: popOut 0.3s ease-out forwards;
+        }
+        @keyframes popOut {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        /* --- 待选方块区域 --- */
+        #pieces-container {
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 30px;
+            height: 100px; /* 固定高度防止抖动 */
+        }
+
+        .piece-wrapper {
+            width: 80px;
+            height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .draggable-piece {
+            display: grid;
+            gap: 2px;
+            cursor: grab;
+            touch-action: none; /* 防止触摸滚动 */
+            transform-origin: center;
+            transition: transform 0.1s;
+        }
+        
+        .draggable-piece:active {
+            cursor: grabbing;
+        }
+
+        /* 待选区的小方块样式 */
+        .p-block {
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, #ffd54f 0%, #ffb300 100%);
+            border-radius: 3px;
+            box-shadow: inset 1px 1px 0 rgba(255,255,255,0.4), inset -1px -1px 0 rgba(0,0,0,0.2), 1px 1px 2px rgba(0,0,0,0.3);
+            pointer-events: none; /* 让事件穿透到父容器 */
+        }
+
+        /* 拖拽时的镜像样式 */
+        .dragging-mirror {
+            position: fixed;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0.9;
+            transform: scale(1.5); /* 拖拽时放大一点，方便看手指下方 */
+            display: grid;
+            gap: 2px;
+        }
+        .dragging-mirror .p-block {
+            width: 25px; /* 拖拽时略微放大基准尺寸，适配棋盘 */
+            height: 25px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        /* --- 弹窗 Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: #3e2723;
+            border: 2px solid #8d6e63;
+            padding: 25px;
+            border-radius: 15px;
+            max-width: 80%;
+            color: #efebe9;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.8);
+            position: relative;
+        }
+        .modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #ffca28;
+            font-weight: bold;
+        }
+        .modal-body {
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .modal-close {
+            display: block;
+            margin: 20px auto 0;
+            background: #ffb300;
+            color: #3e2723;
+            border: none;
+            padding: 10px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #bf8600;
+        }
+        .modal-close:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+        .dev-info {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: #a1887f;
+            text-align: center;
+            border-top: 1px solid #5d4037;
+            padding-top: 10px;
+        }
+
+        /* Game Over Modal Special */
+        #game-over-modal .modal-title { color: #ef5350; }
+        
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Header -->
+        <header>
+            <h1>数独方块（by Arthur）</h1>
+            <button class="btn-rules" onclick="showRules()">规则</button>
+        </header>
+
+        <!-- Score -->
+        <div id="score-board">
+            <span id="score-label">Score</span>
+            <span id="score-value">0</span>
+        </div>
+
+        <!-- Game Board -->
+        <div id="board-wrapper">
+            <div id="game-board">
+                <!-- 81 cells generated by JS -->
+            </div>
+        </div>
+
+        <!-- Pieces to Place -->
+        <div id="pieces-container">
+            <div class="piece-wrapper" id="p-slot-0"></div>
+            <div class="piece-wrapper" id="p-slot-1"></div>
+            <div class="piece-wrapper" id="p-slot-2"></div>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title">游戏规则</div>
+            <div class="modal-body">
+                1. 将下方的方块拖入棋盘。<br>
+                2. 填满任意 <b>一行</b>、<b>一列</b> 或 <b>3x3 九宫格区域</b> 即可消除方块并得分。<br>
+                3. 当下方给出的方块无法放入棋盘时，游戏结束。<br>
+                4. 尽可能多地消除以获得高分！
+            </div>
+            <div class="dev-info">开发者：ArthurZhu</div>
+            <button class="modal-close" onclick="closeModal('rules-modal')">明白</button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="modal-overlay">
+        <div class="modal-content" style="text-align: center;">
+            <div class="modal-title">游戏结束</div>
+            <div class="modal-body">
+                最终得分<br>
+                <span id="final-score" style="font-size: 2.5rem; color: #ffca28; font-weight: bold;">0</span>
+            </div>
+            <div class="dev-info">开发者：ArthurZhu</div>
+            <button class="modal-close" onclick="restartGame()">重新开始</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 游戏配置与状态 ---
+        const BOARD_SIZE = 9;
+        const GRID_COUNT = BOARD_SIZE * BOARD_SIZE;
+        let grid = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+        let score = 0;
+        let currentPieces = [null, null, null]; // 当前三个待选方块
+
+        // 方块形状定义 (0:空, 1:实)
+        const SHAPES = [
+            [[1]], // 单点
+            [[1, 1]], // 2条 (横)
+            [[1], [1]], // 2条 (竖)
+            [[1, 1, 1]], // 3条 (横)
+            [[1], [1], [1]], // 3条 (竖)
+            [[1, 1, 1, 1]], // 4条 (横)
+            [[1], [1], [1], [1]], // 4条 (竖)
+            [[1, 1], [1, 1]], // 田字
+            [[1, 0], [1, 1]], // L型小
+            [[0, 1], [1, 1]], // J型小
+            [[1, 1], [1, 0]], // r型小
+            [[1, 1], [0, 1]], // 7型小
+            [[1, 0, 0], [1, 0, 0], [1, 1, 1]], // L大
+            [[0, 0, 1], [0, 0, 1], [1, 1, 1]], // J大
+            [[1, 1, 1], [0, 1, 0]], // T型
+            [[0, 1, 0], [1, 1, 1]], // T型倒
+            [[1, 0], [1, 1], [1, 0]], // T型左
+            [[0, 1], [1, 1], [0, 1]], // T型右
+            [[1, 1, 0], [0, 1, 1]], // Z型
+            [[0, 1, 1], [1, 1, 0]]  // S型
+        ];
+
+        // --- 初始化 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initBoard();
+            spawnPieces();
+            updateScore(0);
+        });
+
+        function initBoard() {
+            const boardEl = document.getElementById('game-board');
+            boardEl.innerHTML = '';
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    
+                    // 计算 3x3 区域背景色
+                    // 区域坐标 (0,0)到(2,2)
+                    const zR = Math.floor(r / 3);
+                    const zC = Math.floor(c / 3);
+                    // 逻辑：如果 (zR, zC) 是 (0,0), (0,2), (1,1), (2,0), (2,2) -> 深色
+                    // 简单数学规律：zR 和 zC 同奇偶时为深色
+                    if (zR % 2 === zC % 2) {
+                        cell.classList.add('zone-dark');
+                    } else {
+                        cell.classList.add('zone-light');
+                    }
+                    boardEl.appendChild(cell);
+                }
+            }
+            grid = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+        }
+
+        // --- 游戏逻辑：生成方块 ---
+        function spawnPieces() {
+            const container = document.getElementById('pieces-container');
+            for (let i = 0; i < 3; i++) {
+                if (currentPieces[i] === null) {
+                    const randomShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                    currentPieces[i] = randomShape;
+                    renderPieceInSlot(i, randomShape);
+                }
+            }
+            checkGameOver();
+        }
+
+        function renderPieceInSlot(slotIndex, shapeMatrix) {
+            const slot = document.getElementById(`p-slot-${slotIndex}`);
+            slot.innerHTML = ''; // 清空
+
+            const pieceEl = document.createElement('div');
+            pieceEl.classList.add('draggable-piece');
+            pieceEl.dataset.index = slotIndex;
+            
+            // 设置 Grid 布局匹配矩阵维度
+            const rows = shapeMatrix.length;
+            const cols = shapeMatrix[0].length;
+            pieceEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+            pieceEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+            shapeMatrix.forEach(row => {
+                row.forEach(val => {
+                    const block = document.createElement('div');
+                    if (val === 1) {
+                        block.classList.add('p-block');
+                    } else {
+                        block.style.width = '20px';
+                        block.style.height = '20px';
+                        block.style.visibility = 'hidden'; // 占位
+                    }
+                    pieceEl.appendChild(block);
+                });
+            });
+
+            // 绑定拖拽事件
+            bindDragEvents(pieceEl, shapeMatrix);
+            slot.appendChild(pieceEl);
+        }
+
+        // --- 拖拽系统 ---
+        let draggedElement = null;
+        let mirrorElement = null;
+        let currentShape = null;
+        let currentSlotIndex = -1;
+        let startX, startY;
+
+        function bindDragEvents(el, shape) {
+            // 鼠标事件
+            el.addEventListener('mousedown', (e) => startDrag(e, el, shape, false));
+            // 触摸事件
+            el.addEventListener('touchstart', (e) => startDrag(e, el, shape, true), {passive: false});
+        }
+
+        function startDrag(e, el, shape, isTouch) {
+            e.preventDefault();
+            draggedElement = el;
+            currentShape = shape;
+            currentSlotIndex = parseInt(el.dataset.index);
+
+            const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+            const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+            // 创建镜像用于跟随鼠标
+            createMirror(el, clientX, clientY);
+
+            // 隐藏原元素
+            el.style.opacity = '0';
+
+            // 绑定全局移动和释放
+            if (isTouch) {
+                document.addEventListener('touchmove', onTouchMove, {passive: false});
+                document.addEventListener('touchend', onDragEnd);
+            } else {
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onDragEnd);
+            }
+        }
+
+        function createMirror(sourceEl, x, y) {
+            mirrorElement = sourceEl.cloneNode(true);
+            mirrorElement.classList.remove('draggable-piece');
+            mirrorElement.classList.add('dragging-mirror');
+            
+            // 计算偏移量，使手指/鼠标位于方块中心
+            // 这里我们希望手指稍微在方块上方一点，以便看到放置位置
+            // 但为简单起见，先居中
+            document.body.appendChild(mirrorElement);
+            
+            const rect = mirrorElement.getBoundingClientRect();
+            // 初始位置
+            moveMirror(x, y);
+        }
+
+        function moveMirror(x, y) {
+            if (mirrorElement) {
+                // 将元素中心对准触摸点，并向上偏移一点以便观察
+                const offsetX = mirrorElement.offsetWidth / 2;
+                const offsetY = mirrorElement.offsetHeight; // 向上移一格高度左右
+                mirrorElement.style.left = (x - offsetX) + 'px';
+                mirrorElement.style.top = (y - offsetY - 30) + 'px'; // -30 这里的偏移为了让手指不遮挡
+            }
+        }
+
+        function onMouseMove(e) {
+            moveMirror(e.clientX, e.clientY);
+        }
+
+        function onTouchMove(e) {
+            e.preventDefault(); // 防止屏幕滚动
+            moveMirror(e.touches[0].clientX, e.touches[0].clientY);
+        }
+
+        function onDragEnd(e) {
+            // 移除监听
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onDragEnd);
+            document.removeEventListener('touchmove', onTouchMove);
+            document.removeEventListener('touchend', onDragEnd);
+
+            // 获取落点坐标（针对 mirror 的中心点或左上角探测）
+            // 我们取 Mirror 的每个有效方块去探测下面的 grid cell
+            let placed = false;
+            if (mirrorElement) {
+                const mirrorRect = mirrorElement.getBoundingClientRect();
+                // 尝试放置
+                // 我们需要找到 mirror 中第一个实体块的位置，映射到 Board 上的 Cell
+                placed = tryPlacePiece(mirrorRect);
+                mirrorElement.remove();
+                mirrorElement = null;
+            }
+
+            if (placed) {
+                // 成功放置：移除原槽位中的元素，刷新逻辑
+                document.getElementById(`p-slot-${currentSlotIndex}`).innerHTML = '';
+                currentPieces[currentSlotIndex] = null;
+                
+                // 检查消除
+                scanAndClear();
+
+                // 检查是否所有槽位都空了
+                if (currentPieces.every(p => p === null)) {
+                    spawnPieces();
+                } else {
+                    checkGameOver(); // 检查剩下的是否还能放
+                }
+            } else {
+                // 失败：恢复原状
+                if (draggedElement) draggedElement.style.opacity = '1';
+            }
+            draggedElement = null;
+            currentShape = null;
+            currentSlotIndex = -1;
+        }
+
+        // --- 核心判定逻辑 ---
+        
+        // 根据拖拽的镜像位置，计算对应的棋盘行列
+        function tryPlacePiece(mirrorRect) {
+            // 策略：取 mirror 左上角第一个方块的中心点，找到它对应的棋盘格子
+            // 还要校准 shape 内的偏移。
+            // 简单方法：遍历 Shape 的所有 block，计算其在屏幕上的大概位置，看是否都落在有效的空 cell 上。
+            
+            // 1. 找到棋盘的位置
+            const boardEl = document.getElementById('game-board');
+            const boardRect = boardEl.getBoundingClientRect();
+            const cellWidth = boardRect.width / 9;
+            const cellHeight = boardRect.height / 9;
+
+            // Mirror 内部的 p-block 大小可能与 cell 不同（虽然 CSS 设了），
+            // 且 mirror 有 scale。
+            // 更可靠的方法：计算 Mirror 左上角相对于 Board 左上角的偏移，除以 cellWidth。
+            
+            // 此时 mirrorRect.left 是整个形状容器的左边。
+            // 我们需要精确定位：
+            // 假设用户是把形状的中心对准了目标区域。
+            // 为了更好的体验，我们探测形状中第一个 '1' 的位置。
+            
+            let firstBlockRow = -1, firstBlockCol = -1;
+            // 找形状里的第一个实体块偏移
+            outer: for(let r=0; r<currentShape.length; r++){
+                for(let c=0; c<currentShape[r].length; c++){
+                    if(currentShape[r][c] === 1){
+                        firstBlockRow = r;
+                        firstBlockCol = c;
+                        break outer;
+                    }
+                }
+            }
+
+            // 计算该实体块在屏幕上的中心点
+            // 注意 mirrorElement 是 grid 布局，gap 2px。
+            // 简略计算：mirror 的宽 = col * block_size
+            // 我们可以直接用 mirrorRect.left + (firstBlockCol * oneBlockWidth)
+            const mirrorBlockSize = mirrorRect.width / currentShape[0].length; // 估算
+            
+            const probeX = mirrorRect.left + (firstBlockCol + 0.5) * mirrorBlockSize;
+            const probeY = mirrorRect.top + (firstBlockRow + 0.5) * mirrorBlockSize;
+
+            // 检查这个点在棋盘的哪个格子里
+            if (probeX < boardRect.left || probeX > boardRect.right ||
+                probeY < boardRect.top || probeY > boardRect.bottom) {
+                return false;
+            }
+
+            const targetC = Math.floor((probeX - boardRect.left) / cellWidth);
+            const targetR = Math.floor((probeY - boardRect.top) / cellHeight);
+
+            // 此时 (targetR, targetC) 是形状中 (firstBlockRow, firstBlockCol) 应该对应的位置
+            // 推算形状左上角 (0,0) 对应的棋盘位置
+            const baseR = targetR - firstBlockRow;
+            const baseC = targetC - firstBlockCol;
+
+            // 验证是否可放
+            if (canPlace(currentShape, baseR, baseC)) {
+                placeShape(currentShape, baseR, baseC);
+                return true;
+            }
+            return false;
+        }
+
+        function canPlace(shape, r, c) {
+            for (let i = 0; i < shape.length; i++) {
+                for (let j = 0; j < shape[i].length; j++) {
+                    if (shape[i][j] === 1) {
+                        const boardR = r + i;
+                        const boardC = c + j;
+                        // 越界检查
+                        if (boardR < 0 || boardR >= BOARD_SIZE || boardC < 0 || boardC >= BOARD_SIZE) {
+                            return false;
+                        }
+                        // 碰撞检查
+                        if (grid[boardR][boardC] === 1) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function placeShape(shape, r, c) {
+            for (let i = 0; i < shape.length; i++) {
+                for (let j = 0; j < shape[i].length; j++) {
+                    if (shape[i][j] === 1) {
+                        const boardR = r + i;
+                        const boardC = c + j;
+                        grid[boardR][boardC] = 1;
+                        // 视觉更新
+                        const cell = document.querySelector(`.cell[data-row='${boardR}'][data-col='${boardC}']`);
+                        cell.classList.add('filled');
+                    }
+                }
+            }
+        }
+
+        // --- 消除与得分 ---
+        function scanAndClear() {
+            let rowsToClear = [];
+            let colsToClear = [];
+            let zonesToClear = [];
+
+            // 检查行
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                if (grid[r].every(val => val === 1)) rowsToClear.push(r);
+            }
+            // 检查列
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                let full = true;
+                for (let r = 0; r < BOARD_SIZE; r++) {
+                    if (grid[r][c] === 0) { full = false; break; }
+                }
+                if (full) colsToClear.push(c);
+            }
+            // 检查 3x3 区域
+            for (let zr = 0; zr < 3; zr++) {
+                for (let zc = 0; zc < 3; zc++) {
+                    let full = true;
+                    // 检查该区域的9个格子
+                    for (let i = 0; i < 3; i++) {
+                        for (let j = 0; j < 3; j++) {
+                            if (grid[zr * 3 + i][zc * 3 + j] === 0) full = false;
+                        }
+                    }
+                    if (full) zonesToClear.push({zr, zc});
+                }
+            }
+
+            const totalClears = rowsToClear.length + colsToClear.length + zonesToClear.length;
+            if (totalClears > 0) {
+                // 收集所有需要消除的格子坐标（去重）
+                let cellsToClear = new Set();
+                
+                rowsToClear.forEach(r => {
+                    for(let c=0; c<9; c++) cellsToClear.add(`${r},${c}`);
+                });
+                colsToClear.forEach(c => {
+                    for(let r=0; r<9; r++) cellsToClear.add(`${r},${c}`);
+                });
+                zonesToClear.forEach(z => {
+                    for (let i = 0; i < 3; i++) {
+                        for (let j = 0; j < 3; j++) {
+                            cellsToClear.add(`${z.zr * 3 + i},${z.zc * 3 + j}`);
+                        }
+                    }
+                });
+
+                // 执行消除
+                cellsToClear.forEach(key => {
+                    const [r, c] = key.split(',').map(Number);
+                    grid[r][c] = 0;
+                    const cell = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
+                    // 动画
+                    cell.classList.add('clearing');
+                    // 动画结束后移除类
+                    setTimeout(() => {
+                        cell.classList.remove('filled');
+                        cell.classList.remove('clearing');
+                    }, 300);
+                });
+
+                // 算分逻辑 (连击奖励)
+                let points = cellsToClear.size * 10;
+                if (totalClears > 1) {
+                    points += (totalClears - 1) * 50; // 额外奖励
+                }
+                updateScore(score + points);
+            }
+        }
+
+        // --- 游戏结束判定 ---
+        function checkGameOver() {
+            // 获取当前剩余的piece
+            const remainingPieces = currentPieces.filter(p => p !== null);
+            if (remainingPieces.length === 0) return; // 空的不管，会spawn
+
+            let canMove = false;
+            
+            // 遍历所有剩余方块
+            // 遍历棋盘所有位置
+            // 这是一个暴力检查，但对于 9x9 和 3个方块来说，计算量很小
+            
+            pieceLoop:
+            for (let p of remainingPieces) {
+                for (let r = 0; r < BOARD_SIZE; r++) {
+                    for (let c = 0; c < BOARD_SIZE; c++) {
+                        if (canPlace(p, r, c)) {
+                            canMove = true;
+                            break pieceLoop;
+                        }
+                    }
+                }
+            }
+
+            if (!canMove) {
+                setTimeout(() => {
+                    document.getElementById('final-score').innerText = score;
+                    showModal('game-over-modal');
+                }, 500);
+            }
+        }
+
+        function updateScore(newScore) {
+            score = newScore;
+            document.getElementById('score-value').innerText = score;
+        }
+
+        function restartGame() {
+            closeModal('game-over-modal');
+            score = 0;
+            updateScore(0);
+            initBoard();
+            currentPieces = [null, null, null];
+            document.getElementById('p-slot-0').innerHTML = '';
+            document.getElementById('p-slot-1').innerHTML = '';
+            document.getElementById('p-slot-2').innerHTML = '';
+            spawnPieces();
+        }
+
+        // --- UI 控制 ---
+        function showRules() {
+            showModal('rules-modal');
+        }
+
+        function showModal(id) {
+            document.getElementById(id).style.display = 'flex';
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+    </script>
+</body>
+</html>

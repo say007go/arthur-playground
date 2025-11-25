@@ -11,7 +11,6 @@
             --felt-green: #1b5e20;
             --gold-text: #ffd700;
             --gold-shadow: #b8860b;
-            /* 优化4：调整最大尺寸，PC端稍微调小一点，看着更精致 */
             --board-size: min(90vw, 90vh, 520px); 
             --cell-size: calc(var(--board-size) / 8);
         }
@@ -25,9 +24,8 @@
         body {
             margin: 0;
             padding: 0;
-            /* 优化3：背景打光质感，增加聚光灯效果 */
             background: radial-gradient(circle at 50% 30%, #3a3a3a 0%, #1a1a1a 40%, #000000 100%);
-            font-family: "Verdana", "Microsoft YaHei", sans-serif; /* 优化1：更换更清晰的粗体字体 */
+            font-family: "Verdana", "Microsoft YaHei", sans-serif;
             color: white;
             display: flex;
             flex-direction: column;
@@ -48,17 +46,16 @@
         }
 
         h1 {
-            /* 优化1：标题更闪亮，字体加粗 */
-            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            font-size: clamp(1rem, 3.5vw, 2rem);
             margin: 0;
             font-weight: 800;
-            background: linear-gradient(to bottom, #fff, #ffd700, #b8860b); /* 增加白色高光 */
+            background: linear-gradient(to bottom, #fff, #ffd700, #b8860b);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            /* 添加发光阴影 */
             filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             text-transform: uppercase;
+            white-space: nowrap; 
         }
 
         /* 规则按钮 */
@@ -67,8 +64,8 @@
             border: 2px solid #fff;
             color: #3e2723;
             font-weight: 900;
-            width: 30px;
-            height: 30px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -76,7 +73,8 @@
             cursor: pointer;
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
             font-family: sans-serif;
-            font-size: 1.2rem;
+            font-size: 1rem;
+            flex-shrink: 0;
         }
 
         /* 控制面板 */
@@ -152,16 +150,15 @@
         }
 
         .active-turn .turn-indicator {
-            background: #00ff00; /* 亮绿色指示灯 */
+            background: #00ff00;
             box-shadow: 0 0 8px #00ff00;
         }
         
-        /* 名字标签样式 */
         .name-label {
             font-size: 0.9em;
         }
 
-        /* 棋盘外框 (木质) */
+        /* 棋盘外框 */
         .board-frame {
             padding: 15px;
             background: repeating-linear-gradient(
@@ -176,7 +173,7 @@
             border: 5px solid #281810;
         }
 
-        /* 棋盘区域 (毛毡) */
+        /* 棋盘区域 */
         .board {
             display: grid;
             grid-template-columns: repeat(8, 1fr);
@@ -187,6 +184,7 @@
             background-image: radial-gradient(transparent 0%, rgba(0,0,0,0.4) 100%);
             border: 2px solid #111;
             position: relative;
+            perspective: 800px; /* 为3D翻转提供透视 */
         }
 
         .cell {
@@ -199,41 +197,58 @@
             position: relative;
         }
 
-        /* 辅助点 (星位) */
-        .cell[data-coord="2-2"]::after, .cell[data-coord="2-6"]::after,
-        .cell[data-coord="6-2"]::after, .cell[data-coord="6-6"]::after {
-            content: '';
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: rgba(0,0,0,0.4);
-            border-radius: 50%;
-            z-index: 0;
-        }
-
-        /* 棋子 */
+        /* ---- 棋子样式重构（支持3D翻转） ---- */
         .disc {
             width: 85%;
             height: 85%;
             border-radius: 50%;
-            transition: transform 0.4s ease-in-out, background 0.4s;
-            box-shadow: 3px 3px 6px rgba(0,0,0,0.7);
             position: relative;
+            transform-style: preserve-3d; /* 保持3D空间 */
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); /* 翻转动画 */
             z-index: 2;
         }
-
-        /* 黑棋 */
-        .disc.black {
-            background: radial-gradient(circle at 35% 35%, #666, #000);
+        
+        /* 进场动画：仅在新棋子生成时触发 */
+        @keyframes pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .disc.newly-placed {
+            animation: pop 0.25s ease-out;
         }
 
-        /* 白棋 */
-        .disc.white {
+        /* 棋子的两面 */
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            backface-visibility: hidden; /* 背面不可见 */
+            box-shadow: 2px 4px 6px rgba(0,0,0,0.6);
+            /* 解决3D渲染边缘锯齿 */
+            -webkit-backface-visibility: hidden; 
+        }
+
+        /* 黑色面 (正面，0度) */
+        .face.black {
+            background: radial-gradient(circle at 35% 35%, #666, #000);
+            transform: rotateY(0deg);
+        }
+
+        /* 白色面 (背面，180度) */
+        .face.white {
             background: radial-gradient(circle at 35% 35%, #fff, #ccc);
+            transform: rotateY(180deg);
+        }
+
+        /* 翻转状态：当棋子需要显示白色时，旋转180度 */
+        .disc.flipped {
+            transform: rotateY(180deg);
         }
 
         /* 可落子提示 */
         .legal-move {
+            position: absolute;
             width: 25%;
             height: 25%;
             border-radius: 50%;
@@ -250,98 +265,55 @@
             border: 2px solid rgba(255,215,0,0.5);
         }
 
-        /* 弹窗遮罩 */
+        /* 弹窗样式不变 */
         .modal-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85);
             display: none;
-            justify-content: center;
-            align-items: center;
+            justify-content: center; align-items: center;
             z-index: 100;
             padding: 20px;
             backdrop-filter: blur(5px);
         }
-
         .modal-content {
             background: linear-gradient(135deg, #2c2c2c, #1a1a1a);
             border: 2px solid #ffd700;
             padding: 25px;
             border-radius: 10px;
-            max-width: 500px;
-            width: 100%;
+            max-width: 500px; width: 100%;
             color: #ddd;
             position: relative;
-            max-height: 80vh;
-            overflow-y: auto;
+            max-height: 80vh; overflow-y: auto;
             box-shadow: 0 0 40px rgba(255, 215, 0, 0.15);
         }
-
         .modal-title {
-            color: #ffd700;
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            text-align: center;
-            border-bottom: 1px solid #555;
-            padding-bottom: 10px;
-            font-weight: bold;
+            color: #ffd700; font-size: 1.5rem; margin-bottom: 15px;
+            text-align: center; border-bottom: 1px solid #555; padding-bottom: 10px; font-weight: bold;
         }
-
-        .modal-text {
-            line-height: 1.6;
-            font-size: 0.95rem;
-        }
-
+        .modal-text { line-height: 1.6; font-size: 0.95rem; }
         .close-btn {
-            display: block;
-            margin: 20px auto 0;
-            background: #ffd700;
-            color: #000;
-            border: none;
-            padding: 10px 35px;
-            font-weight: bold;
-            font-size: 1rem;
+            display: block; margin: 20px auto 0;
+            background: #ffd700; color: #000;
+            border: none; padding: 10px 35px;
+            font-weight: bold; font-size: 1rem;
         }
-
         .modal-footer {
-            margin-top: 20px;
-            font-size: 0.8rem;
-            color: #888;
-            text-align: center;
-            border-top: 1px solid #444;
-            padding-top: 10px;
-        }
-
-        @keyframes pop {
-            0% { transform: scale(0.8); opacity: 0.5; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        
-        .disc {
-            animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin-top: 20px; font-size: 0.8rem; color: #888;
+            text-align: center; border-top: 1px solid #444; padding-top: 10px;
         }
 
         @media (max-width: 600px) {
-            .controls {
-                gap: 8px;
-            }
-            select, button {
-                padding: 8px 12px;
-                font-size: 0.8rem;
-            }
-            .player-score {
-                font-size: 0.85rem;
-            }
+            .controls { gap: 8px; }
+            select, button { padding: 8px 12px; font-size: 0.8rem; }
+            .player-score { font-size: 0.85rem; }
         }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>黑白棋</h1>
+        <h1>黑白棋（by Arthur）</h1>
         <div class="info-btn" onclick="openRules()">?</div>
     </div>
 
@@ -349,7 +321,6 @@
         <div class="player-score active-turn" id="score-black-container">
             <div class="turn-indicator"></div>
             <div style="width: 24px; height: 24px; border-radius: 50%; background: #000; border: 1px solid #666; margin: 0 8px; box-shadow: 1px 1px 3px rgba(255,255,255,0.2);"></div>
-            <!-- 优化2：名字标签改为独立span以便动态修改 -->
             <span><span id="label-black" class="name-label">黑方</span>: <span id="score-black" style="font-size:1.2em; color:#fff;">2</span></span>
         </div>
         <div class="player-score" id="score-white-container">
@@ -409,11 +380,9 @@
         let gameMode = 'pve'; 
         let difficulty = 2; 
         let isComputerThinking = false;
-        
-        // 优化2：新增变量，记录人类玩家的阵营 (BLACK 或 WHITE)
         let humanSide = BLACK; 
 
-        // 权重矩阵（保持核心逻辑不变）
+        // 权重矩阵
         const WEIGHTS = [
             [100, -20, 10,  5,  5, 10, -20, 100],
             [-20, -50, -2, -2, -2, -2, -50, -20],
@@ -439,11 +408,7 @@
             document.getElementById('game-mode').addEventListener('change', (e) => {
                 gameMode = e.target.value;
                 const diffSelect = document.getElementById('difficulty');
-                if (gameMode === 'pvp') {
-                    diffSelect.style.display = 'none';
-                } else {
-                    diffSelect.style.display = 'inline-block';
-                }
+                diffSelect.style.display = (gameMode === 'pvp') ? 'none' : 'inline-block';
                 newGame();
             });
 
@@ -462,7 +427,6 @@
                     cell.className = 'cell';
                     cell.dataset.row = r;
                     cell.dataset.col = c;
-                    cell.dataset.coord = `${r}-${c}`; 
                     cell.onclick = () => handleUserClick(r, c);
                     boardEl.appendChild(cell);
                 }
@@ -470,7 +434,13 @@
         }
 
         function newGame() {
+            // 清空棋盘数据
             board = Array(8).fill(null).map(() => Array(8).fill(EMPTY));
+            
+            // 彻底清空UI（防止旧游戏残余）
+            const allCells = document.querySelectorAll('.cell');
+            allCells.forEach(cell => cell.innerHTML = '');
+
             // 初始布局
             board[3][3] = WHITE;
             board[3][4] = BLACK;
@@ -481,12 +451,9 @@
             isGameOver = false;
             isComputerThinking = false;
             
-            // 优化2：PVE模式下随机分配阵营并更新UI
+            // PVE模式下随机分配阵营并更新UI
             if (gameMode === 'pve') {
-                // 50% 概率玩家是黑方或白方
                 humanSide = Math.random() < 0.5 ? BLACK : WHITE;
-                
-                // 更新UI标签
                 if (humanSide === BLACK) {
                     document.getElementById('label-black').innerText = "黑方 (玩家)";
                     document.getElementById('label-white').innerText = "白方 (电脑)";
@@ -495,49 +462,41 @@
                     document.getElementById('label-white').innerText = "白方 (玩家)";
                 }
             } else {
-                // PVP 恢复默认
                 document.getElementById('label-black').innerText = "黑方";
                 document.getElementById('label-white').innerText = "白方";
-                humanSide = BLACK; // PVP模式下此变量不影响逻辑，设为默认
+                humanSide = BLACK; 
             }
             
             updateBoardUI();
             
-            // 如果电脑是黑方（先手），需要触发电脑思考
             if (gameMode === 'pve' && humanSide === WHITE) {
                 isComputerThinking = true;
-                setTimeout(computerMove, 1000); // 稍微延迟长一点，让用户看清开局
-                checkGameStateUIOnly(); // 仅更新灯光状态
+                setTimeout(computerMove, 1000); 
+                checkGameStateUIOnly();
             } else {
                 checkGameState();
             }
         }
         
-        // 辅助函数：仅更新UI状态（用于电脑先手时的初始渲染）
         function checkGameStateUIOnly() {
             updateScore();
             document.getElementById('score-black-container').classList.toggle('active-turn', currentPlayer === BLACK);
             document.getElementById('score-white-container').classList.toggle('active-turn', currentPlayer === WHITE);
         }
 
-        // 核心逻辑：检查某位置是否合法，并返回翻转列表
         function getFlips(r, c, player, currentBoard) {
             if (currentBoard[r][c] !== EMPTY) return [];
-            
             let flips = [];
             let opponent = player === BLACK ? WHITE : BLACK;
-
             for (let [dr, dc] of directions) {
                 let rCurr = r + dr;
                 let cCurr = c + dc;
                 let potentialFlips = [];
-
                 while (rCurr >= 0 && rCurr < 8 && cCurr >= 0 && cCurr < 8 && currentBoard[rCurr][cCurr] === opponent) {
                     potentialFlips.push({r: rCurr, c: cCurr});
                     rCurr += dr;
                     cCurr += dc;
                 }
-
                 if (rCurr >= 0 && rCurr < 8 && cCurr >= 0 && cCurr < 8 && currentBoard[rCurr][cCurr] === player && potentialFlips.length > 0) {
                     flips = flips.concat(potentialFlips);
                 }
@@ -566,7 +525,7 @@
                 const flips = getFlips(r, c, player, board);
                 board[r][c] = player;
                 flips.forEach(p => board[p.r][p.c] = player);
-                updateBoardUI();
+                updateBoardUI(); // 更新棋盘
             } else {
                 const newBoard = JSON.parse(JSON.stringify(board)); 
                 const flips = getFlips(r, c, player, newBoard);
@@ -578,7 +537,6 @@
 
         function handleUserClick(r, c) {
             if (isGameOver || isComputerThinking) return;
-            // 优化2：适配随机阵营逻辑，如果当前轮到的一方不是人类阵营，则禁止点击
             if (gameMode === 'pve' && currentPlayer !== humanSide) return;
 
             if (isValidMove(r, c, currentPlayer, board)) {
@@ -604,17 +562,15 @@
                     // Pass 逻辑
                     currentPlayer = opponent;
                     updateBoardUI(); 
-                    // 递归检查
                     setTimeout(checkGameState, 500); 
                     return;
                 }
             }
 
-            // 更新UI指示灯
             document.getElementById('score-black-container').classList.toggle('active-turn', currentPlayer === BLACK);
             document.getElementById('score-white-container').classList.toggle('active-turn', currentPlayer === WHITE);
 
-            // 优化：仅在人类回合显示可落子提示
+            // 显示提示
             let showHints = false;
             if (gameMode === 'pvp') showHints = true;
             if (gameMode === 'pve' && currentPlayer === humanSide) showHints = true;
@@ -623,7 +579,6 @@
                 showLegalMoves(validMoves);
             }
 
-            // 优化2：如果轮到电脑，触发AI
             if (gameMode === 'pve' && currentPlayer !== humanSide && !isGameOver) {
                 isComputerThinking = true;
                 setTimeout(computerMove, 600); 
@@ -631,29 +586,72 @@
         }
 
         function showLegalMoves(moves) {
+            // 先清除旧提示，但保留棋子
+            const existingHints = document.querySelectorAll('.legal-move');
+            existingHints.forEach(el => el.remove());
+
             moves.forEach(m => {
                 const cell = document.querySelector(`.cell[data-row='${m.r}'][data-col='${m.c}']`);
-                const hint = document.createElement('div');
-                hint.className = 'legal-move';
-                cell.appendChild(hint);
+                // 只有空格子才加提示
+                if(board[m.r][m.c] === EMPTY) {
+                    const hint = document.createElement('div');
+                    hint.className = 'legal-move';
+                    cell.appendChild(hint);
+                }
             });
         }
 
+        // --- 核心修改：智能更新UI（消除闪烁 + 翻转） ---
         function updateBoardUI() {
+            // 清除所有的提示点，但保留棋子
+            const hints = document.querySelectorAll('.legal-move');
+            hints.forEach(h => h.remove());
+
             const cells = document.querySelectorAll('.cell');
             cells.forEach(cell => {
                 const r = parseInt(cell.dataset.row);
                 const c = parseInt(cell.dataset.col);
-                cell.innerHTML = ''; 
-                
-                if (board[r][c] === BLACK) {
-                    const disc = document.createElement('div');
-                    disc.className = 'disc black';
+                const val = board[r][c];
+
+                // 查找当前格子里的棋子
+                let disc = cell.querySelector('.disc');
+
+                if (val === EMPTY) {
+                    // 如果数据为空，但UI有棋子（通常不会发生，除非悔棋功能），则移除
+                    if (disc) disc.remove();
+                    return;
+                }
+
+                // 如果格子没棋子，但数据有 -> 创建新棋子
+                if (!disc) {
+                    disc = document.createElement('div');
+                    disc.className = 'disc newly-placed'; // 添加 newly-placed 以触发弹入动画
+                    
+                    // 创建双面结构
+                    const faceFront = document.createElement('div');
+                    faceFront.className = 'face black'; // 默认正面是黑
+                    const faceBack = document.createElement('div');
+                    faceBack.className = 'face white';  // 默认背面是白
+                    
+                    disc.appendChild(faceFront);
+                    disc.appendChild(faceBack);
                     cell.appendChild(disc);
-                } else if (board[r][c] === WHITE) {
-                    const disc = document.createElement('div');
-                    disc.className = 'disc white';
-                    cell.appendChild(disc);
+                    
+                    // 动画结束后移除类，以免翻转时再次触发缩放动画
+                    setTimeout(() => disc.classList.remove('newly-placed'), 300);
+                }
+
+                // 根据颜色设置翻转状态
+                // 逻辑：正面是黑色(0deg)，背面是白色(180deg)
+                // 如果是白色，加上 .flipped 类
+                if (val === WHITE) {
+                    if (!disc.classList.contains('flipped')) {
+                        disc.classList.add('flipped');
+                    }
+                } else {
+                    if (disc.classList.contains('flipped')) {
+                        disc.classList.remove('flipped');
+                    }
                 }
             });
         }
@@ -684,11 +682,9 @@
             setTimeout(() => alert(`游戏结束\n${msg}\n黑方: ${scores.black} - 白方: ${scores.white}`), 100);
         }
 
-        // --- AI 逻辑 (保持不变，仅修改参数调用) ---
-
+        // --- AI 逻辑 ---
         function computerMove() {
             if (isGameOver) return;
-            // 电脑执的一方是 currentPlayer
             let computerSide = currentPlayer; 
             let moves = getValidMoves(computerSide, board);
             
@@ -711,14 +707,11 @@
             } else {
                 let bestVal = -Infinity;
                 let depth = 4; 
-                
                 moves.sort((a, b) => WEIGHTS[b.r][b.c] - WEIGHTS[a.r][a.c]);
 
                 for (let move of moves) {
                     let tempBoard = simulateMove(board, move.r, move.c, computerSide);
-                    // 注意：minimax里的 isMaximizing false 代表轮到对手(玩家)
                     let moveVal = minimax(tempBoard, depth - 1, false, -Infinity, Infinity, computerSide);
-                    
                     if (moveVal > bestVal) {
                         bestVal = moveVal;
                         bestMove = move;
@@ -763,12 +756,8 @@
             return score;
         }
 
-        // 修改 Minimax 以支持动态AI阵营
         function minimax(currentBoard, depth, isMaximizing, alpha, beta, aiSide) {
-            if (depth === 0) {
-                return evaluateBoard(currentBoard, aiSide);
-            }
-
+            if (depth === 0) return evaluateBoard(currentBoard, aiSide);
             let opponentSide = aiSide === BLACK ? WHITE : BLACK;
             let player = isMaximizing ? aiSide : opponentSide;
             let moves = getValidMoves(player, currentBoard);
@@ -805,19 +794,10 @@
             }
         }
 
-        // UI 交互
-        function openRules() {
-            document.getElementById('rulesModal').style.display = 'flex';
-        }
-
-        function closeRules() {
-            document.getElementById('rulesModal').style.display = 'none';
-        }
-        
+        function openRules() { document.getElementById('rulesModal').style.display = 'flex'; }
+        function closeRules() { document.getElementById('rulesModal').style.display = 'none'; }
         document.getElementById('rulesModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeRules();
-            }
+            if (e.target === this) closeRules();
         });
     </script>
 </body>

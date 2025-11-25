@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>国际跳棋 (by Arthur)</title>
+    <style>
+        :root {
+            --bg-color: #0f1c15;
+            --board-border: #3e2211;
+            --cell-light: #eecfa1;
+            --cell-dark: #5c3a21;
+            --highlight: #d4af37; /* 金色 */
+            --p1-main: #b80a0a;    /* 红棋主色 */
+            --p2-main: #1f1f1f;    /* 黑棋主色 */
+        }
+
+        * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at center, #1b3a2a 0%, #050a08 100%);
+            color: #fff;
+            font-family: 'Times New Roman', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden; /* 防止页面滚动，只允许棋盘区域滑动 */
+        }
+
+        /* 顶部 UI */
+        header {
+            width: 100%;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.4);
+            border-bottom: 1px solid var(--highlight);
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.2rem, 3vw, 1.8rem);
+            color: var(--highlight);
+            text-shadow: 0 2px 4px #000;
+            letter-spacing: 1px;
+        }
+
+        .btn-rule {
+            margin-left: 15px;
+            background: transparent;
+            border: 1px solid var(--highlight);
+            color: var(--highlight);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn-rule:hover { background: var(--highlight); color: #000; }
+
+        /* 控制面板 */
+        .controls {
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        select, button {
+            background: linear-gradient(to bottom, #2b2b2b, #1a1a1a);
+            color: var(--highlight);
+            border: 1px solid #555;
+            border-bottom: 2px solid var(--highlight);
+            padding: 6px 15px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            outline: none;
+            transition: transform 0.1s;
+        }
+        button:active { transform: translateY(2px); }
+
+        .status-bar {
+            margin-bottom: 10px;
+            color: #ddd;
+            font-size: 1rem;
+            text-shadow: 0 1px 2px #000;
+            min-height: 1.5em;
+        }
+
+        /* 棋盘容器 */
+        .board-wrapper {
+            flex-grow: 1;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center; /* 垂直居中 */
+            overflow: auto;
+            padding: 10px;
+            position: relative;
+        }
+
+        #board {
+            /* 响应式尺寸控制 */
+            width: 90vmin;
+            height: 90vmin;
+            /* PC端限制最大尺寸，防止过大 */
+            max-width: 600px; 
+            max-height: 600px;
+            
+            background-color: var(--board-border);
+            padding: 8px;
+            border-radius: 6px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.6);
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            border: 6px solid #2a150a;
+            position: relative;
+            transition: transform 0.6s ease-in-out; /* 棋盘旋转动画 */
+        }
+
+        /* 当玩家执黑时，旋转棋盘 */
+        #board.rotate-180 {
+            transform: rotate(180deg);
+        }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .cell.light { 
+            background: var(--cell-light); 
+            background-image: url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="none"/><path d="M0 0 L100 100 M100 0 L0 100" stroke="%23dcc090" stroke-width="0.5" opacity="0.5"/></svg>');
+        }
+        .cell.dark { 
+            background: var(--cell-dark);
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.4);
+        }
+
+        /* 选中和提示效果 - 仅修改格子样式，不影响棋子 */
+        .cell.highlight::after {
+            content: '';
+            position: absolute;
+            width: 25%;
+            height: 25%;
+            background: #00ff00;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #00ff00;
+            z-index: 1;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .cell.selected {
+            background-color: #8c7b38 !important; /* 选中格子底色变亮 */
+            box-shadow: inset 0 0 15px rgba(255, 255, 0, 0.3);
+        }
+
+        /* 上一步提示 */
+        .cell.last-move {
+            background-color: rgba(212, 175, 55, 0.2) !important;
+        }
+
+        /* 棋子 - 高端拟真风格 */
+        .piece {
+            width: 82%;
+            height: 82%;
+            border-radius: 50%;
+            position: relative;
+            z-index: 2;
+            cursor: pointer;
+            box-shadow: 
+                0 3px 5px rgba(0,0,0,0.6), /* 投影 */
+                inset 0 -3px 5px rgba(0,0,0,0.5), /* 底部内阴影 */
+                inset 0 3px 5px rgba(255,255,255,0.4); /* 顶部高光 */
+            transition: transform 0.2s; /* 仅用于点击缩放，移动用JS动画 */
+        }
+
+        /* 棋子内部纹理 - 同心圆 */
+        .piece::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 65%; height: 65%;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.15);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        /* 红色棋子 */
+        .piece.red {
+            background: radial-gradient(circle at 35% 35%, #ff5e5e, var(--p1-main) 60%, #4a0000);
+            border: 1px solid #330000;
+        }
+        /* 黑色棋子 */
+        .piece.black {
+            background: radial-gradient(circle at 35% 35%, #666, var(--p2-main) 60%, #000);
+            border: 1px solid #000;
+        }
+
+        /* 王棋 */
+        .piece.king::after {
+            content: '♔';
+            font-size: 2em;
+            color: #d4af37;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -55%); /* 微调居中 */
+            text-shadow: 0 1px 1px rgba(0,0,0,0.8);
+        }
+
+        /* 当棋盘旋转时，棋子里的王冠也要反向旋转回来，保持直立 */
+        #board.rotate-180 .piece {
+            transform: rotate(180deg);
+        }
+
+        @media (max-width: 600px) { 
+            .piece.king::after { font-size: 1.4rem; } 
+        }
+
+        /* 移动动画用的绝对定位类 */
+        .piece.moving {
+            position: absolute;
+            z-index: 100;
+            pointer-events: none;
+            box-shadow: 0 15px 25px rgba(0,0,0,0.5); /* 移动时浮起阴影 */
+            transition: left 0.4s ease-in-out, top 0.4s ease-in-out;
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #1a1a1a;
+            border: 2px solid var(--highlight);
+            padding: 25px;
+            border-radius: 8px;
+            max-width: 90%;
+            width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 0 30px rgba(212, 175, 55, 0.2);
+        }
+        .modal h2 { color: var(--highlight); margin-top: 0; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .modal ul { padding-left: 20px; }
+        .modal li { font-size: 14px; line-height: 1.8; color: #ccc; margin-bottom: 5px; }
+        .close-modal {
+            position: absolute; top: 10px; right: 15px;
+            color: #888; font-size: 28px; cursor: pointer;
+            line-height: 20px;
+        }
+        .developer {
+            margin-top: 20px;
+            border-top: 1px solid #333;
+            padding-top: 15px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--highlight);
+            font-style: italic;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>国际跳棋 (by Arthur)</h1>
+    <button class="btn-rule" onclick="toggleModal(true)">?</button>
+</header>
+
+<div class="controls">
+    <select id="gameMode">
+        <option value="pve">人机对战 (PVE)</option>
+        <option value="pvp">双人对战 (PVP)</option>
+    </select>
+    <select id="difficulty">
+        <option value="1">难度: 简单</option>
+        <option value="3" selected>难度: 中等</option>
+        <option value="5">难度: 极难</option>
+    </select>
+    <button onclick="game.initGame()">重新开始</button>
+</div>
+
+<div class="status-bar" id="status">准备开始...</div>
+
+<div class="board-wrapper">
+    <div id="board"></div>
+</div>
+
+<!-- 规则模态框 -->
+<div id="ruleModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="toggleModal(false)">&times;</span>
+        <h2>游戏规则</h2>
+        <ul>
+            <li><strong>胜负：</strong>吃光对方或让对方无路可走即获胜。</li>
+            <li><strong>移动：</strong>棋子沿深色格斜向移动一格。</li>
+            <li><strong>强制吃子：</strong>若紧邻对手棋子且后方为空，<span style="color:#ff5e5e">必须</span>跳过吃子。</li>
+            <li><strong>连跳：</strong>吃子后若还能吃，必须继续连跳。</li>
+            <li><strong>王棋：</strong>到达底线升变为王，可向后移动。</li>
+            <li><strong>PVE说明：</strong>人机模式下，您的阵营(红/黑)随机分配。</li>
+        </ul>
+        <div class="developer">开发者：ArthurZhu</div>
+    </div>
+</div>
+
+<script>
+/**
+ * 国际跳棋 (8x8) 
+ * 优化版：DOM复用，CSS动画，随机阵营
+ */
+
+const BOARD_SIZE = 8;
+const PLAYER_RED = 1;   // 逻辑上的"下方"阵营 (通常先手)
+const PLAYER_BLACK = 2; // 逻辑上的"上方"阵营
+const KING_RED = 3;
+const KING_BLACK = 4;
+
+class CheckersGame {
+    constructor() {
+        this.boardData = []; // 逻辑数据
+        this.turn = PLAYER_RED; 
+        this.selectedPiece = null; // {r, c}
+        this.validMoves = [];
+        this.gameOver = false;
+        this.isAnimating = false; // 动画锁
+        
+        this.mode = 'pve';
+        this.difficulty = 3;
+        this.playerSide = PLAYER_RED; // 玩家在PVE中的阵营
+
+        this.boardEl = document.getElementById('board');
+        this.statusEl = document.getElementById('status');
+        
+        // 初次生成DOM结构（防止闪烁）
+        this.createBoardGrid();
+    }
+
+    // 生成8x8的DIV网格，后续只操作里面的棋子
+    createBoardGrid() {
+        this.boardEl.innerHTML = '';
+        for(let r=0; r<BOARD_SIZE; r++) {
+            for(let c=0; c<BOARD_SIZE; c++) {
+                const cell = document.createElement('div');
+                cell.className = `cell ${(r+c)%2===0 ? 'light' : 'dark'}`;
+                cell.id = `cell-${r}-${c}`;
+                cell.onclick = () => this.handleCellClick(r, c);
+                this.boardEl.appendChild(cell);
+            }
+        }
+    }
+
+    initGame() {
+        this.turn = PLAYER_RED;
+        this.selectedPiece = null;
+        this.validMoves = [];
+        this.gameOver = false;
+        this.isAnimating = false;
+        
+        this.mode = document.getElementById('gameMode').value;
+        this.difficulty = parseInt(document.getElementById('difficulty').value);
+
+        // PVE 随机阵营
+        if (this.mode === 'pve') {
+            this.playerSide = Math.random() < 0.5 ? PLAYER_RED : PLAYER_BLACK;
+        } else {
+            this.playerSide = PLAYER_RED; // PVP 默认视角不转，或者可以设计轮流转
+        }
+
+        // 初始化棋盘数据 (0:空, 1:红, 2:黑)
+        this.boardData = Array(8).fill(null).map(() => Array(8).fill(0));
+        for(let r=0; r<BOARD_SIZE; r++) {
+            for(let c=0; c<BOARD_SIZE; c++) {
+                if((r + c) % 2 === 1) {
+                    if(r < 3) this.boardData[r][c] = PLAYER_BLACK;
+                    else if(r > 4) this.boardData[r][c] = PLAYER_RED;
+                }
+            }
+        }
+
+        // 视角调整
+        this.adjustView();
+        // 渲染初始棋子
+        this.renderPieces();
+        this.clearHighlights();
+        this.updateStatus();
+
+        // 如果玩家执黑，电脑执红先走
+        if(this.mode === 'pve' && this.playerSide === PLAYER_BLACK) {
+             setTimeout(() => this.makeAiMove(), 800);
+        }
+    }
+
+    adjustView() {
+        // 如果玩家是黑方(2)，旋转棋盘
+        if (this.mode === 'pve' && this.playerSide === PLAYER_BLACK) {
+            this.boardEl.classList.add('rotate-180');
+        } else {
+            this.boardEl.classList.remove('rotate-180');
+        }
+    }
+
+    // 清空所有格子里的棋子，重新根据 boardData 放置
+    renderPieces() {
+        for(let r=0; r<BOARD_SIZE; r++) {
+            for(let c=0; c<BOARD_SIZE; c++) {
+                const cell = document.getElementById(`cell-${r}-${c}`);
+                // 先清空 cell 内部的内容 (棋子)
+                // 注意：不要把 cell 删了，只删子元素
+                while (cell.firstChild) {
+                    cell.removeChild(cell.firstChild);
+                }
+
+                const val = this.boardData[r][c];
+                if(val !== 0) {
+                    const piece = document.createElement('div');
+                    piece.className = `piece ${ (val === PLAYER_RED || val === KING_RED) ? 'red' : 'black' }`;
+                    if(val === KING_RED || val === KING_BLACK) piece.classList.add('king');
+                    // 存储位置信息以便动画查找
+                    piece.dataset.r = r;
+                    piece.dataset.c = c;
+                    cell.appendChild(piece);
+                }
+            }
+        }
+    }
+
+    // 仅清除高亮，不重绘棋子
+    clearHighlights() {
+        const cells = document.querySelectorAll('.cell');
+        cells.forEach(c => {
+            c.classList.remove('highlight');
+            c.classList.remove('selected');
+            c.classList.remove('last-move');
+        });
+    }
+
+    handleCellClick(r, c) {
+        if(this.gameOver || this.isAnimating) return;
+        // PVE 且轮到电脑时，玩家不可操作
+        if(this.mode === 'pve' && this.turn !== this.playerSide) return;
+
+        const clickedVal = this.boardData[r][c];
+        const isOwnPiece = this.isOwnPiece(clickedVal, this.turn);
+
+        // 1. 点击己方棋子 -> 选中
+        if(isOwnPiece) {
+            // 检查强制吃子
+            const allMoves = this.getAllPossibleMoves(this.boardData, this.turn);
+            const canJump = allMoves.some(m => m.jump);
+            const movesForPiece = this.getMovesForPiece(this.boardData, r, c, clickedVal);
+
+            if(canJump) {
+                // 如果全局必须吃子，那么当前选中的棋子必须是能吃子的那个
+                if(!movesForPiece.some(m => m.jump)) return; // 点了不能吃子的棋子
+                this.validMoves = movesForPiece.filter(m => m.jump);
+            } else {
+                this.validMoves = movesForPiece;
+            }
+
+            this.selectedPiece = {r, c};
+            
+            // 视觉更新：只更新class
+            this.clearHighlights();
+            document.getElementById(`cell-${r}-${c}`).classList.add('selected');
+            this.validMoves.forEach(m => {
+                document.getElementById(`cell-${m.toR}-${m.toC}`).classList.add('highlight');
+            });
+        } 
+        // 2. 点击空格 -> 移动
+        else if(this.selectedPiece) {
+            const move = this.validMoves.find(m => m.toR === r && m.toC === c);
+            if(move) {
+                this.executeMoveWithAnimation(move);
+            }
+        }
+    }
+
+    // 带动画的移动执行
+    async executeMoveWithAnimation(move) {
+        this.isAnimating = true;
+        this.clearHighlights(); // 清除高亮，保持干净
+
+        const {fromR, fromC, toR, toC, jump} = move;
+        const fromCell = document.getElementById(`cell-${fromR}-${fromC}`);
+        const toCell = document.getElementById(`cell-${toR}-${toC}`);
+        const pieceEl = fromCell.querySelector('.piece');
+
+        if(!pieceEl) {
+            // 异常保护，直接走逻辑
+            this.finalizeMove(move);
+            return;
+        }
+
+        // 1. 计算位置差
+        const fromRect = fromCell.getBoundingClientRect();
+        const toRect = toCell.getBoundingClientRect();
+        const deltaX = toRect.left - fromRect.left;
+        const deltaY = toRect.top - fromRect.top;
+
+        // 2. 将棋子设为绝对定位模式，或者使用 transform
+        // 为了跨越层级遮挡，最好是用 clone 放到 body 上，或者直接 transform
+        // 这里采用 clone 到 board 上层的方法
+        const clone = pieceEl.cloneNode(true);
+        clone.classList.add('moving');
+        
+        // 修正：如果棋盘旋转了，rect坐标是屏幕坐标，视觉是对的
+        // 但我们要把 clone 放到 boardEl 中以便定位? 不，直接放到 body 或 board-wrapper 最稳妥
+        // 为了简单，直接在原位置 transform
+        
+        pieceEl.style.transition = 'transform 0.4s ease-in-out';
+        pieceEl.style.zIndex = '100'; // 保证在最上层
+        // 修正旋转带来的坐标系问题：
+        // 如果棋盘 rotate(180)，CSS transform 的方向也是反的。
+        // 但是 getBoundingClientRect 获取的是屏幕绝对像素差，所以 translate(x,y) 应该是屏幕视觉差
+        // 如果棋盘旋转了，translate(x, y) 是相对于棋子的局部坐标系。
+        
+        // 更好的方案：Clone 一个放在 body 上做动画
+        document.body.appendChild(clone);
+        clone.style.width = fromRect.width * 0.82 + 'px'; // 保持大小
+        clone.style.height = fromRect.height * 0.82 + 'px';
+        clone.style.left = (fromRect.left + fromRect.width*0.09) + 'px'; // 居中偏移
+        clone.style.top = (fromRect.top + fromRect.height*0.09) + 'px';
+        
+        // 隐藏原始棋子
+        pieceEl.style.opacity = '0';
+
+        // 强制回流
+        clone.offsetHeight;
+
+        // 开始移动
+        clone.style.left = (toRect.left + toRect.width*0.09) + 'px';
+        clone.style.top = (toRect.top + toRect.height*0.09) + 'px';
+
+        // 等待动画结束
+        await new Promise(resolve => setTimeout(resolve, 400));
+
+        // 清理动画元素
+        clone.remove();
+        
+        // 执行逻辑并重绘
+        this.finalizeMove(move);
+        this.isAnimating = false;
+    }
+
+    // 逻辑落子及后续处理
+    finalizeMove(move) {
+        const {fromR, fromC, toR, toC, jump} = move;
+        const pieceVal = this.boardData[fromR][fromC];
+
+        // 逻辑更新
+        this.boardData[toR][toC] = pieceVal;
+        this.boardData[fromR][fromC] = 0;
+
+        // 吃子
+        if(jump) {
+            const midR = (fromR + toR) / 2;
+            const midC = (fromC + toC) / 2;
+            this.boardData[midR][midC] = 0;
+        }
+
+        // 升变
+        let promoted = false;
+        if(pieceVal === PLAYER_RED && toR === 0) {
+            this.boardData[toR][toC] = KING_RED;
+            promoted = true;
+        } else if(pieceVal === PLAYER_BLACK && toR === 7) {
+            this.boardData[toR][toC] = KING_BLACK;
+            promoted = true;
+        }
+
+        // 重绘棋盘 (这是防止闪烁的关键，只在落子后重绘一次，而不是每次点击)
+        this.renderPieces();
+        
+        // 标记上一步
+        document.getElementById(`cell-${fromR}-${fromC}`).classList.add('last-move');
+        document.getElementById(`cell-${toR}-${toC}`).classList.add('last-move');
+
+        // 连跳检查
+        let hasMultiJump = false;
+        if(jump && !promoted) {
+            const newMoves = this.getMovesForPiece(this.boardData, toR, toC, this.boardData[toR][toC]);
+            const jumpMoves = newMoves.filter(m => m.jump);
+            if(jumpMoves.length > 0) {
+                hasMultiJump = true;
+                this.selectedPiece = {r: toR, c: toC};
+                this.validMoves = jumpMoves;
+                // 视觉高亮
+                document.getElementById(`cell-${toR}-${toC}`).classList.add('selected');
+                jumpMoves.forEach(m => document.getElementById(`cell-${m.toR}-${m.toC}`).classList.add('highlight'));
+                
+                // AI 连跳自动执行
+                if(this.mode === 'pve' && this.turn !== this.playerSide) {
+                     setTimeout(() => this.executeMoveWithAnimation(jumpMoves[0]), 400);
+                     return;
+                }
+            }
+        }
+
+        if(!hasMultiJump) {
+            this.endTurn();
+        }
+    }
+
+    endTurn() {
+        this.selectedPiece = null;
+        this.validMoves = [];
+        
+        if(this.checkWin(this.turn === PLAYER_RED ? PLAYER_BLACK : PLAYER_RED)) return;
+
+        this.turn = this.turn === PLAYER_RED ? PLAYER_BLACK : PLAYER_RED;
+        this.updateStatus();
+
+        // AI 行动
+        if(this.mode === 'pve' && this.turn !== this.playerSide) {
+            // 延迟一点，让玩家看清上一步
+            setTimeout(() => this.makeAiMove(), 600);
+        }
+    }
+
+    checkWin(nextPlayer) {
+        const moves = this.getAllPossibleMoves(this.boardData, nextPlayer);
+        if(moves.length === 0) {
+            this.gameOver = true;
+            let winnerName = "";
+            if(this.mode === 'pve') {
+                winnerName = (nextPlayer !== this.playerSide) ? "你" : "电脑";
+            } else {
+                winnerName = nextPlayer === PLAYER_RED ? "黑方" : "红方";
+            }
+            const msg = `游戏结束！${winnerName} 获胜！`;
+            this.statusEl.innerText = msg;
+            setTimeout(() => alert(msg), 100);
+            return true;
+        }
+        return false;
+    }
+
+    updateStatus() {
+        let text = "";
+        const turnName = this.turn === PLAYER_RED ? "红方" : "黑方";
+        
+        if(this.mode === 'pve') {
+            if (this.turn === this.playerSide) {
+                text = `轮到你了 (${turnName})`;
+            } else {
+                text = `电脑思考中 (${turnName})...`;
+            }
+        } else {
+            text = `${turnName} 回合`;
+        }
+        this.statusEl.innerText = text;
+    }
+
+    // --- 核心逻辑 ---
+
+    isOwnPiece(val, player) {
+        if(player === PLAYER_RED) return val === 1 || val === 3;
+        if(player === PLAYER_BLACK) return val === 2 || val === 4;
+        return false;
+    }
+
+    getAllPossibleMoves(board, player) {
+        let moves = [];
+        for(let r=0; r<BOARD_SIZE; r++) {
+            for(let c=0; c<BOARD_SIZE; c++) {
+                const val = board[r][c];
+                if(this.isOwnPiece(val, player)) {
+                    moves = moves.concat(this.getMovesForPiece(board, r, c, val));
+                }
+            }
+        }
+        const jumpMoves = moves.filter(m => m.jump);
+        return jumpMoves.length > 0 ? jumpMoves : moves;
+    }
+
+    getMovesForPiece(board, r, c, val) {
+        const moves = [];
+        const isKing = val === 3 || val === 4;
+        const player = (val === 1 || val === 3) ? PLAYER_RED : PLAYER_BLACK;
+        
+        let dirs = [];
+        // 红: 向上(-1), 黑: 向下(+1)
+        if(player === PLAYER_RED) dirs.push([-1, -1], [-1, 1]);
+        if(player === PLAYER_BLACK) dirs.push([1, -1], [1, 1]);
+        if(isKing) {
+            if(player === PLAYER_RED) dirs.push([1, -1], [1, 1]); 
+            else dirs.push([-1, -1], [-1, 1]);
+        }
+
+        dirs.forEach(([dr, dc]) => {
+            const nr = r + dr, nc = c + dc;
+            if(this.isValidPos(nr, nc) && board[nr][nc] === 0) {
+                moves.push({fromR: r, fromC: c, toR: nr, toC: nc, jump: false});
+            }
+            const jr = r + dr*2, jc = c + dc*2;
+            if(this.isValidPos(jr, jc) && board[jr][jc] === 0) {
+                const midVal = board[nr][nc];
+                if(midVal !== 0 && !this.isOwnPiece(midVal, player)) {
+                    moves.push({fromR: r, fromC: c, toR: jr, toC: jc, jump: true});
+                }
+            }
+        });
+        return moves;
+    }
+
+    isValidPos(r, c) {
+        return r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE;
+    }
+
+    // --- AI ---
+
+    makeAiMove() {
+        if(this.gameOver) return;
+        const depth = this.difficulty; 
+        const aiPlayer = this.turn; // 当前轮到谁，谁就是AI（因为makeAiMove只在AI回合调）
+        
+        // 简单的异步包装防止阻塞UI
+        setTimeout(() => {
+            const bestMove = this.minimaxRoot(depth, aiPlayer);
+            if(bestMove) {
+                this.executeMoveWithAnimation(bestMove);
+            } else {
+                console.log("AI无路可走"); // CheckWin会处理
+            }
+        }, 10);
+    }
+
+    minimaxRoot(depth, aiPlayer) {
+        const possibleMoves = this.getAllPossibleMoves(this.boardData, aiPlayer);
+        if(possibleMoves.length === 0) return null;
+        if(possibleMoves.length === 1) return possibleMoves[0];
+
+        // 随机洗牌
+        possibleMoves.sort(() => Math.random() - 0.5);
+
+        let bestMoveVal = -99999;
+        let bestMoveFound = possibleMoves[0];
+
+        for(let i = 0; i < possibleMoves.length; i++) {
+            const move = possibleMoves[i];
+            const newBoard = this.simulateMove(this.boardData, move);
+            // 下一层是对方，minimize
+            const val = this.minimax(newBoard, depth - 1, -100000, 100000, false, aiPlayer);
+            if(val > bestMoveVal) {
+                bestMoveVal = val;
+                bestMoveFound = move;
+            }
+        }
+        return bestMoveFound;
+    }
+
+    minimax(board, depth, alpha, beta, isMaximizing, aiPlayer) {
+        if(depth === 0) return this.evaluateBoard(board, aiPlayer);
+
+        const currentPlayer = isMaximizing ? aiPlayer : (aiPlayer===PLAYER_RED?PLAYER_BLACK:PLAYER_RED);
+        const possibleMoves = this.getAllPossibleMoves(board, currentPlayer);
+
+        if(possibleMoves.length === 0) {
+            return isMaximizing ? -10000 : 10000;
+        }
+
+        if(isMaximizing) {
+            let maxEval = -99999;
+            for(let move of possibleMoves) {
+                const newBoard = this.simulateMove(board, move);
+                const evalVal = this.minimax(newBoard, depth - 1, alpha, beta, false, aiPlayer);
+                maxEval = Math.max(maxEval, evalVal);
+                alpha = Math.max(alpha, evalVal);
+                if(beta <= alpha) break;
+            }
+            return maxEval;
+        } else {
+            let minEval = 99999;
+            for(let move of possibleMoves) {
+                const newBoard = this.simulateMove(board, move);
+                const evalVal = this.minimax(newBoard, depth - 1, alpha, beta, true, aiPlayer);
+                minEval = Math.min(minEval, evalVal);
+                beta = Math.min(beta, evalVal);
+                if(beta <= alpha) break;
+            }
+            return minEval;
+        }
+    }
+
+    simulateMove(board, move) {
+        const newBoard = board.map(row => [...row]);
+        const {fromR, fromC, toR, toC, jump} = move;
+        const val = newBoard[fromR][fromC];
+        newBoard[toR][toC] = val;
+        newBoard[fromR][fromC] = 0;
+        if(jump) {
+            newBoard[(fromR+toR)/2][(fromC+toC)/2] = 0;
+        }
+        if(val === PLAYER_RED && toR === 0) newBoard[toR][toC] = KING_RED;
+        if(val === PLAYER_BLACK && toR === 7) newBoard[toR][toC] = KING_BLACK;
+        return newBoard;
+    }
+
+    evaluateBoard(board, aiPlayer) {
+        let score = 0;
+        const opponent = aiPlayer === PLAYER_RED ? PLAYER_BLACK : PLAYER_RED;
+
+        for(let r=0; r<BOARD_SIZE; r++) {
+            for(let c=0; c<BOARD_SIZE; c++) {
+                const val = board[r][c];
+                if(val === 0) continue;
+                
+                let pieceScore = 10;
+                if(val === KING_RED || val === KING_BLACK) pieceScore = 30; // 王权重
+
+                // 简单的位置分
+                if(this.isOwnPiece(val, aiPlayer)) {
+                    score += pieceScore;
+                    // 奖励进攻位置
+                    if(aiPlayer === PLAYER_BLACK) score += r; // 黑往下好
+                    else score += (7-r); // 红往上好
+                } else {
+                    score -= pieceScore;
+                    if(opponent === PLAYER_BLACK) score -= r;
+                    else score -= (7-r);
+                }
+            }
+        }
+        return score;
+    }
+}
+
+const game = new CheckersGame();
+game.initGame();
+
+// Event Listeners
+document.getElementById('gameMode').addEventListener('change', () => game.initGame());
+document.getElementById('difficulty').addEventListener('change', () => game.initGame());
+
+function toggleModal(show) {
+    document.getElementById('ruleModal').style.display = show ? 'flex' : 'none';
+}
+window.onclick = function(event) {
+    const modal = document.getElementById('ruleModal');
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
+</script>
+</body>
+</html>
