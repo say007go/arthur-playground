@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>纸牌接龙（by Arthur）</title>
+    <style>
+        :root {
+            /* 赌场风格配色 */
+            --bg-start: #235b3e;
+            --bg-end: #0e2b1d;
+            --card-width-pc: 110px;
+            --card-width-mobile: 12.2vw;
+            --card-ratio: 1.45;
+            --gold: #d4af37;
+            --gold-hover: #f9d873;
+            --border-radius: 6px;
+            --shadow-card: 1px 1px 4px rgba(0,0,0,0.4);
+            --shadow-floating: 4px 8px 16px rgba(0,0,0,0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at center, var(--bg-start) 0%, var(--bg-end) 100%);
+            font-family: "Georgia", "Times New Roman", serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: #e0e0e0;
+        }
+
+        /* --- 顶部栏 --- */
+        header {
+            background: rgba(0, 0, 0, 0.25);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .game-title {
+            font-size: 1.2rem;
+            color: var(--gold);
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn:hover {
+            background: rgba(212, 175, 55, 0.1);
+            color: var(--gold-hover);
+            border-color: var(--gold-hover);
+        }
+        .btn:active { transform: translateY(1px); }
+
+        /* --- 游戏区域 --- */
+        #game-board {
+            flex: 1;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .top-row {
+            display: flex;
+            justify-content: space-between;
+            height: calc(var(--card-width-pc) * var(--card-ratio) + 20px);
+            margin-bottom: 10px;
+        }
+
+        .pile-group { display: flex; gap: 15px; }
+
+        /* 卡牌槽位 */
+        .slot {
+            width: var(--card-width-pc);
+            height: calc(var(--card-width-pc) * var(--card-ratio));
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius);
+            position: relative;
+            background: rgba(0,0,0,0.2);
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .slot.refresh-icon::after {
+            content: "↺";
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            color: rgba(255,255,255,0.2);
+        }
+        
+        .slot.foundation::before {
+            content: attr(data-suit-icon);
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5rem;
+            color: rgba(255,255,255,0.1);
+            font-family: Arial, sans-serif;
+            opacity: 0.5;
+        }
+
+        /* 下半部分 */
+        .bottom-row {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .column {
+            position: relative;
+            width: var(--card-width-pc);
+            height: 100%;
+        }
+
+        /* --- 卡牌样式 --- */
+        .card {
+            width: var(--card-width-pc);
+            height: calc(var(--card-width-pc) * var(--card-ratio));
+            background: linear-gradient(135deg, #fdfdfd 0%, #f0f0f0 100%);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-card);
+            position: absolute;
+            cursor: pointer;
+            overflow: hidden;
+            transition: transform 0.1s;
+            font-family: "Arial", sans-serif;
+        }
+
+        /* 牌面布局 */
+        .card-corner {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-weight: bold;
+            line-height: 1;
+            padding: 4px;
+            font-size: 2.2rem; 
+        }
+        .card-corner.top-left { top: 4px; left: 4px; }
+        .card-corner.bottom-right { bottom: 4px; right: 4px; transform: rotate(180deg); }
+        
+        /* 中心大图标 */
+        .card-center {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 5.5rem; 
+            line-height: 1;
+            pointer-events: none;
+            
+            /* 修改点2：增加底部内边距，将图案视觉重心上移，使其位于对角线的视觉中心 */
+            padding-bottom: 20px; 
+        }
+
+        /* 颜色 */
+        .red { color: #d40000; }
+        .black { color: #1a1a1a; }
+
+        /* 牌背 */
+        .card.back {
+            background-color: #fff;
+            background-image: 
+                repeating-linear-gradient(45deg, #4a6fa5 0, #4a6fa5 2px, #fff 2px, #fff 3px),
+                repeating-linear-gradient(-45deg, #4a6fa5 0, #4a6fa5 2px, #fff 2px, #fff 3px);
+            border: 4px solid #fff;
+            box-shadow: var(--shadow-card);
+        }
+        .card.back * { display: none; }
+
+        /* 选中状态 */
+        .card.selected {
+            z-index: 9999 !important;
+            transform: translateY(-8px);
+            box-shadow: 0 0 0 2px var(--gold), var(--shadow-floating);
+        }
+
+        /* --- 手机端适配 --- */
+        @media (max-width: 768px) {
+            :root {
+                --card-width-pc: 12.2vw; 
+            }
+            header { padding: 8px 15px; }
+            .game-title { font-size: 1rem; }
+            .btn { padding: 4px 12px; font-size: 0.8rem; }
+            .pile-group { gap: 8px; }
+            
+            .card-corner { font-size: 1.1rem; padding: 2px; }
+
+            /* 修改点1：手机端字号进一步缩小到 1.6rem */
+            /* 修改点2：手机端对应调整 padding-bottom */
+            .card-center { 
+                font-size: 1.6rem; 
+                padding-bottom: 5px; 
+            }
+            
+            .top-row { margin-bottom: 5px; }
+            .slot.foundation::before { font-size: 2rem; }
+        }
+
+        /* --- 弹窗样式 --- */
+        .modal {
+            display: none; position: fixed; z-index: 10000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: linear-gradient(to bottom, #fff, #f4f4f4);
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%; max-width: 500px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        .modal h2 { margin-top: 0; color: #235b3e; border-bottom: 2px solid var(--gold); padding-bottom: 10px; }
+        .modal ul { padding-left: 20px; line-height: 1.8; }
+        .modal-footer { text-align: right; margin-top: 25px; font-style: italic; color: #666; font-size: 0.9rem; }
+        .close-icon { float: right; font-size: 28px; cursor: pointer; color: #888; margin-top: -10px;}
+        .close-icon:hover { color: #333; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-left">
+        <div class="game-title">纸牌接龙 <span style="font-weight:normal; font-size:0.8em; opacity:0.7;">(by Arthur)</span></div>
+        <button class="btn" onclick="openRules()">规则介绍</button>
+    </div>
+    <div>
+        <button class="btn" onclick="initGame()">重新洗牌</button>
+    </div>
+</header>
+
+<div id="game-board">
+    <!-- 上半区 -->
+    <div class="top-row">
+        <div class="pile-group">
+            <div id="stock-pile" class="slot refresh-icon" onclick="clickStock()"></div>
+            <div id="waste-pile" class="slot"></div>
+        </div>
+        <div class="pile-group">
+            <div id="foundation-0" class="slot foundation" data-suit-icon="♥" onclick="clickFoundation(0)"></div>
+            <div id="foundation-1" class="slot foundation" data-suit-icon="♠" onclick="clickFoundation(1)"></div>
+            <div id="foundation-2" class="slot foundation" data-suit-icon="♦" onclick="clickFoundation(2)"></div>
+            <div id="foundation-3" class="slot foundation" data-suit-icon="♣" onclick="clickFoundation(3)"></div>
+        </div>
+    </div>
+
+    <!-- 下半区 -->
+    <div class="bottom-row">
+        <div id="col-0" class="column" onclick="clickColumnBase(0)"></div>
+        <div id="col-1" class="column" onclick="clickColumnBase(1)"></div>
+        <div id="col-2" class="column" onclick="clickColumnBase(2)"></div>
+        <div id="col-3" class="column" onclick="clickColumnBase(3)"></div>
+        <div id="col-4" class="column" onclick="clickColumnBase(4)"></div>
+        <div id="col-5" class="column" onclick="clickColumnBase(5)"></div>
+        <div id="col-6" class="column" onclick="clickColumnBase(6)"></div>
+    </div>
+</div>
+
+<div id="rule-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-icon" onclick="closeRules()">&times;</span>
+        <h2>游戏规则</h2>
+        <ul>
+            <li><strong>目标：</strong>将所有牌按花色（♥♠♦♣）归位至右上角，顺序 A 到 K。</li>
+            <li><strong>接龙：</strong>下方牌列需满足“红黑交替”且“点数递减”。</li>
+            <li><strong>移动：</strong>单击选中，再单击目标；支持整列移动。</li>
+            <li><strong>空位：</strong>仅 K（国王）可填补空列。</li>
+            <li><strong>技巧：</strong>双击可快速归位（支持牌桌和左上角）；点击右上角牌堆可取回牌。</li>
+        </ul>
+        <div class="modal-footer">开发者：ArthurZhu</div>
+    </div>
+</div>
+
+<script>
+    /** 
+     * 游戏配置 
+     */
+    const SUITS = ['hearts', 'spades', 'diamonds', 'clubs']; 
+    const COLORS = { 'hearts': 'red', 'spades': 'black', 'diamonds': 'red', 'clubs': 'black' };
+    const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    const SUIT_CHARS = {
+        'hearts': '♥',
+        'spades': '♠',
+        'diamonds': '♦',
+        'clubs': '♣'
+    };
+
+    // 游戏状态数据
+    let stock = [];     
+    let waste = [];     
+    let foundations = [[], [], [], []]; 
+    let tableau = [[], [], [], [], [], [], []]; 
+    let selection = null; 
+
+    // --- 初始化 ---
+    function initGame() {
+        stock = []; waste = [];
+        foundations = [[], [], [], []];
+        tableau = [[], [], [], [], [], [], []];
+        selection = null;
+
+        let deck = [];
+        SUITS.forEach(suit => {
+            RANKS.forEach((rank, i) => {
+                deck.push({
+                    suit: suit,
+                    rank: rank,
+                    value: i + 1, 
+                    color: COLORS[suit],
+                    faceUp: false,
+                    id: suit + rank
+                });
+            });
+        });
+
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+
+        let cardIndex = 0;
+        for (let col = 0; col < 7; col++) {
+            for (let row = 0; row <= col; row++) {
+                let card = deck[cardIndex++];
+                if (row === col) card.faceUp = true;
+                tableau[col].push(card);
+            }
+        }
+
+        while (cardIndex < 52) {
+            stock.push(deck[cardIndex++]);
+        }
+
+        render();
+    }
+
+    // --- 渲染引擎 ---
+    function render() {
+        // 1. 牌库
+        const stockEl = document.getElementById('stock-pile');
+        stockEl.innerHTML = '';
+        if (stock.length > 0) {
+            stockEl.appendChild(createCardElement(null, true));
+        }
+
+        // 2. 废牌堆
+        const wasteEl = document.getElementById('waste-pile');
+        wasteEl.innerHTML = '';
+        if (waste.length > 0) {
+            let card = waste[waste.length - 1];
+            let cardDiv = createCardElement(card);
+            if (isSelected('waste', 0, waste.length-1)) cardDiv.classList.add('selected');
+            
+            cardDiv.onclick = (e) => { e.stopPropagation(); selectCard('waste', 0, waste.length - 1); };
+            cardDiv.ondblclick = (e) => { e.stopPropagation(); autoMoveCard(card, 'waste'); };
+            
+            wasteEl.appendChild(cardDiv);
+        }
+
+        // 3. 回收堆
+        foundations.forEach((pile, idx) => {
+            const fEl = document.getElementById('foundation-' + idx);
+            fEl.innerHTML = '';
+            if (pile.length > 0) {
+                let card = pile[pile.length - 1];
+                let cardDiv = createCardElement(card);
+                if (isSelected('foundation', idx, pile.length-1)) cardDiv.classList.add('selected');
+                
+                cardDiv.onclick = (e) => { e.stopPropagation(); clickFoundation(idx); };
+                fEl.appendChild(cardDiv);
+            }
+        });
+
+        // 4. 牌桌
+        tableau.forEach((colCards, colIdx) => {
+            const colEl = document.getElementById('col-' + colIdx);
+            colEl.innerHTML = '';
+            
+            colCards.forEach((card, rowIdx) => {
+                let cardDiv = createCardElement(card, !card.faceUp);
+                
+                let topPos = 0;
+                for(let k=0; k<rowIdx; k++) {
+                    let spacing = tableau[colIdx][k].faceUp ? 
+                        (window.innerWidth < 600 ? 25 : 35) : 
+                        (window.innerWidth < 600 ? 8 : 10);   
+                    topPos += spacing;
+                }
+                cardDiv.style.top = topPos + 'px';
+                cardDiv.style.zIndex = rowIdx + 1;
+
+                // 整摞高亮逻辑
+                let isStackSelected = false;
+                if (selection && selection.type === 'tableau' && selection.col === colIdx) {
+                    if (rowIdx >= selection.row) {
+                        isStackSelected = true;
+                    }
+                }
+                
+                if (isStackSelected) {
+                    cardDiv.classList.add('selected');
+                }
+
+                if (card.faceUp) {
+                    cardDiv.onclick = (e) => { e.stopPropagation(); handleTableauClick(colIdx, rowIdx); };
+                    if (rowIdx === colCards.length - 1) {
+                         cardDiv.ondblclick = (e) => { e.stopPropagation(); autoMoveCard(card, 'tableau', colIdx); };
+                    }
+                }
+                colEl.appendChild(cardDiv);
+            });
+        });
+    }
+
+    // --- 创建卡牌 HTML ---
+    function createCardElement(cardData, isBack = false) {
+        const div = document.createElement('div');
+        div.className = 'card';
+        if (isBack) {
+            div.className += ' back';
+            return div;
+        }
+
+        const colorClass = cardData.color; 
+        div.classList.add(colorClass);
+
+        const suitChar = SUIT_CHARS[cardData.suit];
+
+        div.innerHTML = `
+            <div class="card-corner top-left">${cardData.rank}</div>
+            <div class="card-center">${suitChar}</div>
+            <div class="card-corner bottom-right">${cardData.rank}</div>
+        `;
+        return div;
+    }
+
+    // --- 交互逻辑 ---
+
+    function isSelected(type, col, row) {
+        return selection && selection.type === type && selection.col === col && selection.row === row;
+    }
+
+    function clickStock() {
+        if (stock.length === 0) {
+            if (waste.length > 0) {
+                stock = waste.reverse().map(c => { c.faceUp = false; return c; });
+                waste = [];
+            }
+        } else {
+            let card = stock.pop();
+            card.faceUp = true;
+            waste.push(card);
+        }
+        selection = null;
+        render();
+    }
+
+    function selectCard(type, col, row) {
+        if (isSelected(type, col, row)) {
+            selection = null;
+        } else {
+            selection = { type, col, row };
+        }
+        render();
+    }
+
+    function clickFoundation(idx) {
+        if (selection) {
+            if (selection.type === 'tableau' && selection.row !== tableau[selection.col].length - 1) return;
+            
+            let card = getSelectedCardObject();
+            if (validateFoundationMove(card, idx)) {
+                executeMoveToFoundation(idx);
+            } else {
+                if (selection.type === 'foundation' && selection.col === idx) selection = null;
+                else selection = null; 
+                render();
+            }
+            return;
+        }
+
+        if (foundations[idx].length > 0) {
+            selectCard('foundation', idx, foundations[idx].length - 1);
+        }
+    }
+
+    function handleTableauClick(col, row) {
+        if (!selection) {
+            selectCard('tableau', col, row);
+            return;
+        }
+        if (isSelected('tableau', col, row)) {
+            selection = null;
+            render();
+            return;
+        }
+        if (selection.type === 'tableau' && selection.col === col) {
+             selectCard('tableau', col, row);
+             return;
+        }
+
+        if (row !== tableau[col].length - 1) {
+            selectCard('tableau', col, row);
+            return;
+        }
+        attemptMoveToTableau(col);
+    }
+
+    function clickColumnBase(col) {
+        if (tableau[col].length === 0 && selection) {
+            attemptMoveToTableau(col);
+        }
+    }
+
+    // --- 核心移动逻辑 ---
+
+    function getSelectedCardObject() {
+        if (!selection) return null;
+        if (selection.type === 'waste') return waste[waste.length - 1];
+        if (selection.type === 'foundation') return foundations[selection.col][foundations[selection.col].length - 1];
+        if (selection.type === 'tableau') return tableau[selection.col][selection.row];
+        return null;
+    }
+
+    function validateFoundationMove(card, fIdx) {
+        if (card.suit !== SUITS[fIdx]) return false;
+        
+        let pile = foundations[fIdx];
+        if (pile.length === 0) {
+            return card.rank === 'A';
+        } else {
+            let top = pile[pile.length - 1];
+            return card.value === top.value + 1;
+        }
+    }
+
+    function attemptMoveToTableau(targetColIdx) {
+        let card = getSelectedCardObject();
+        let targetCol = tableau[targetColIdx];
+        let targetCard = targetCol.length > 0 ? targetCol[targetCol.length - 1] : null;
+
+        let valid = false;
+        if (!targetCard) {
+            if (card.rank === 'K') valid = true;
+        } else {
+            if (card.color !== targetCard.color && card.value === targetCard.value - 1) valid = true;
+        }
+
+        if (valid) {
+            executeMoveToTableau(targetColIdx);
+        } else {
+            selection = null;
+            render();
+        }
+    }
+
+    function executeMoveToTableau(targetColIdx) {
+        let cardsToMove = [];
+        
+        if (selection.type === 'waste') {
+            cardsToMove.push(waste.pop());
+        } else if (selection.type === 'foundation') {
+            cardsToMove.push(foundations[selection.col].pop());
+        } else if (selection.type === 'tableau') {
+            let sourceCol = tableau[selection.col];
+            let count = sourceCol.length - selection.row;
+            cardsToMove = sourceCol.splice(selection.row, count);
+            
+            if (sourceCol.length > 0) sourceCol[sourceCol.length - 1].faceUp = true;
+        }
+
+        tableau[targetColIdx] = tableau[targetColIdx].concat(cardsToMove);
+        selection = null;
+        render();
+    }
+
+    function executeMoveToFoundation(fIdx) {
+        let card;
+        if (selection.type === 'waste') {
+            card = waste.pop();
+        } else if (selection.type === 'tableau') {
+            let col = tableau[selection.col];
+            card = col.pop();
+            if (col.length > 0) col[col.length - 1].faceUp = true;
+        } else if (selection.type === 'foundation') {
+            card = foundations[selection.col].pop();
+        }
+
+        foundations[fIdx].push(card);
+        selection = null;
+        render();
+        checkWin();
+    }
+
+    // --- 双击归位 ---
+    function autoMoveCard(card, type, colIdx) {
+        const targetFIdx = SUITS.indexOf(card.suit);
+        if (targetFIdx === -1) return;
+
+        if (validateFoundationMove(card, targetFIdx)) {
+            let row;
+            if (type === 'waste') {
+                row = waste.length - 1;
+            } else {
+                row = tableau[colIdx].length - 1;
+            }
+            selection = { type: type, col: colIdx, row: row };
+            executeMoveToFoundation(targetFIdx);
+        }
+    }
+
+    function checkWin() {
+        let count = 0;
+        foundations.forEach(f => count += f.length);
+        if (count === 52) {
+            setTimeout(() => alert("恭喜！您已成功完成！🎉"), 100);
+        }
+    }
+
+    // --- 弹窗控制 ---
+    function openRules() { document.getElementById('rule-modal').style.display = 'flex'; }
+    function closeRules() { document.getElementById('rule-modal').style.display = 'none'; }
+    window.onclick = (e) => { if(e.target == document.getElementById('rule-modal')) closeRules(); };
+
+    // 启动
+    initGame();
+
+</script>
+</body>
+</html>

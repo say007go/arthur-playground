@@ -65,7 +65,7 @@
             flex-wrap: wrap;
             justify-content: center;
             gap: 40px;
-            max-width: 1200px; 
+            max-width: 1300px; /* 稍微加宽以容纳4列布局(4x3=12) */
             width: 100%;
             margin-bottom: 3rem;
         }
@@ -133,8 +133,9 @@
         .game-card.klotski:hover { box-shadow: 0 15px 30px rgba(255, 165, 0, 0.4); }       /* 华容道 - 琥珀橙 */
         .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }    /* 双陆棋 - 绿色 */
         .game-card.battleship:hover { box-shadow: 0 15px 30px rgba(0, 100, 255, 0.5); }    /* 海战棋 - 深海蓝 */
+        .game-card.solitaire:hover { box-shadow: 0 15px 30px rgba(34, 139, 34, 0.5); }     /* 纸牌接龙 - 牌桌绿 */
 
-        /* 入场动画序列 (11个) */
+        /* 入场动画序列 (12个) */
         .game-card {
             opacity: 0;
             animation: fadeInUp 0.8s ease-out forwards;
@@ -150,6 +151,7 @@
         .game-card:nth-child(9) { animation-delay: 0.9s; }
         .game-card:nth-child(10) { animation-delay: 1.0s; }
         .game-card:nth-child(11) { animation-delay: 1.1s; }
+        .game-card:nth-child(12) { animation-delay: 1.2s; } /* 新增 */
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -218,14 +220,14 @@
             <div class="game-desc">经典的连珠策略游戏<br>Connect 4</div>
         </a>
 
-        <!-- 5. 黑白棋 (新图标：Radio Button) -->
+        <!-- 5. 黑白棋 (图标：Radio Button) -->
         <a href="./reversi/" class="game-card reversi">
             <div class="icon">🔘</div>
             <div class="game-title">黑白棋</div>
             <div class="game-desc">翻转乾坤的智慧<br>Reversi</div>
         </a>
 
-        <!-- 6. 国际跳棋 (新图标：Crown) -->
+        <!-- 6. 国际跳棋 (图标：Crown) -->
         <a href="./checkers/" class="game-card checkers">
             <div class="icon">👑</div>
             <div class="game-title">国际跳棋</div>
@@ -239,21 +241,21 @@
             <div class="game-desc">逻辑推理的数字迷宫<br>Sudoku</div>
         </a>
 
-        <!-- 8. 数独方块 (新图标：Brick) -->
+        <!-- 8. 数独方块 (图标：Brick) -->
         <a href="./sudokublock/" class="game-card block">
             <div class="icon">🧱</div>
             <div class="game-title">数独方块</div>
             <div class="game-desc">消除与填充的乐趣<br>Sudoku Block</div>
         </a>
 
-        <!-- 9. 华容道 (新图标：Wheel) -->
+        <!-- 9. 华容道 (图标：Wheel 更新为 🛞) -->
         <a href="./klotski/" class="game-card klotski">
             <div class="icon">🛞</div>
             <div class="game-title">华容道</div>
             <div class="game-desc">经典的滑块解谜<br>Klotski</div>
         </a>
 
-        <!-- 10. 双陆棋 (新图标：Chess Pawn) -->
+        <!-- 10. 双陆棋 (图标：Chess Pawn) -->
         <a href="./backgammon/" class="game-card backgammon">
             <div class="icon">♟️</div>
             <div class="game-title">双陆棋</div>
@@ -265,6 +267,13 @@
             <div class="icon">⚓</div>
             <div class="game-title">海战棋</div>
             <div class="game-desc">隐秘海域的策略打击<br>Battleship</div>
+        </a>
+
+        <!-- 12. 纸牌接龙 (新) -->
+        <a href="./solitaire/" class="game-card solitaire">
+            <div class="icon">♠️</div>
+            <div class="game-title">纸牌接龙</div>
+            <div class="game-desc">经典的单人扑克游戏<br>Solitaire</div>
         </a>
     </div>
 
