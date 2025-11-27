@@ -183,11 +183,12 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 5.5rem; 
+            
+            /* 修改点1：PC端字体大小设为 3.5rem (约为110px的一半) */
+            font-size: 3.5rem; 
+            
             line-height: 1;
             pointer-events: none;
-            
-            /* 修改点2：增加底部内边距，将图案视觉重心上移，使其位于对角线的视觉中心 */
             padding-bottom: 20px; 
         }
 
@@ -223,12 +224,12 @@
             .btn { padding: 4px 12px; font-size: 0.8rem; }
             .pile-group { gap: 8px; }
             
-            .card-corner { font-size: 1.1rem; padding: 2px; }
+            /* 手机端角标大小微调，保持主次 */
+            .card-corner { font-size: 0.9rem; padding: 2px; }
 
-            /* 修改点1：手机端字号进一步缩小到 1.6rem */
-            /* 修改点2：手机端对应调整 padding-bottom */
+            /* 修改点2：手机端字体大小设为 4vw (约为12.2vw的三分之一) */
             .card-center { 
-                font-size: 1.6rem; 
+                font-size: 4vw; 
                 padding-bottom: 5px; 
             }
             
