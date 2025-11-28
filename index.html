@@ -22,7 +22,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            /* justify-content: center;  去掉垂直居中，防止内容多了以后顶部被切掉 */
             color: #fff;
             padding: 40px 20px;
         }
@@ -36,9 +36,13 @@
         /* 标题样式 */
         header {
             text-align: center;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
             animation: fadeInDown 1s ease-out;
             width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         h1 {
@@ -57,6 +61,32 @@
             font-size: 1.1rem;
             font-weight: 300;
             letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+        }
+
+        /* 搜索框样式 */
+        .search-box {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px 20px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        .search-box::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .search-box:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+            width: 100%; /* Focus时稍微变宽一点的视觉暗示 */
         }
 
         /* 容器布局 */
@@ -65,12 +95,12 @@
             flex-wrap: wrap;
             justify-content: center;
             gap: 40px;
-            max-width: 1300px; /* 维持宽屏宽度，PC上通常显示为4列 */
+            max-width: 1300px; 
             width: 100%;
             margin-bottom: 3rem;
         }
 
-        /* 卡片样式 */
+        /* 卡片样式 (PC端保持大卡片) */
         .game-card {
             width: 280px;
             height: 320px;
@@ -108,6 +138,7 @@
             font-size: 0.9rem;
             color: #ccc;
             line-height: 1.5;
+            display: block; /* PC端显示描述 */
         }
 
         /* Hover 动效 */
@@ -121,20 +152,25 @@
             transform: scale(1.2) rotate(5deg);
         }
 
+        /* 搜索隐藏样式 */
+        .game-card.hidden {
+            display: none;
+        }
+
         /* --- 专属霓虹光效设定 --- */
-        .game-card.rogue:hover { box-shadow: 0 15px 30px rgba(220, 20, 60, 0.5); }       /* 绝境骰子 - 血红 */
-        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }         /* 快艇骰子 - 青色 */
-        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }        /* 猜颜色 - 玫红 */
-        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }      /* 四子棋 - 金黄 */
-        .game-card.reversi:hover { box-shadow: 0 15px 30px rgba(255, 255, 255, 0.6); }     /* 黑白棋 - 极昼白 */
-        .game-card.checkers:hover { box-shadow: 0 15px 30px rgba(200, 50, 50, 0.5); }      /* 国际跳棋 - 砖红 */
-        .game-card.sudoku:hover { box-shadow: 0 15px 30px rgba(30, 144, 255, 0.4); }       /* 数独 - 智力蓝 */
-        .game-card.block:hover { box-shadow: 0 15px 30px rgba(64, 224, 208, 0.4); }        /* 数独方块 - 薄荷绿 */
-        .game-card.klotski:hover { box-shadow: 0 15px 30px rgba(255, 165, 0, 0.4); }       /* 华容道 - 琥珀橙 */
-        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }    /* 双陆棋 - 绿色 */
-        .game-card.battleship:hover { box-shadow: 0 15px 30px rgba(0, 100, 255, 0.5); }    /* 海战棋 - 深海蓝 */
-        .game-card.solitaire:hover { box-shadow: 0 15px 30px rgba(34, 139, 34, 0.5); }     /* 纸牌接龙 - 牌桌绿 */
-        .game-card.gem:hover { box-shadow: 0 15px 30px rgba(200, 0, 255, 0.5); }           /* 宝石消除 - 霓虹紫 */
+        .game-card.rogue:hover { box-shadow: 0 15px 30px rgba(220, 20, 60, 0.5); }
+        .game-card.dice:hover { box-shadow: 0 15px 30px rgba(0, 255, 255, 0.3); }
+        .game-card.color:hover { box-shadow: 0 15px 30px rgba(255, 0, 255, 0.3); }
+        .game-card.connect:hover { box-shadow: 0 15px 30px rgba(255, 200, 0, 0.3); }
+        .game-card.reversi:hover { box-shadow: 0 15px 30px rgba(255, 255, 255, 0.6); }
+        .game-card.checkers:hover { box-shadow: 0 15px 30px rgba(200, 50, 50, 0.5); }
+        .game-card.sudoku:hover { box-shadow: 0 15px 30px rgba(30, 144, 255, 0.4); }
+        .game-card.block:hover { box-shadow: 0 15px 30px rgba(64, 224, 208, 0.4); }
+        .game-card.klotski:hover { box-shadow: 0 15px 30px rgba(255, 165, 0, 0.4); }
+        .game-card.backgammon:hover { box-shadow: 0 15px 30px rgba(0, 255, 100, 0.3); }
+        .game-card.battleship:hover { box-shadow: 0 15px 30px rgba(0, 100, 255, 0.5); }
+        .game-card.solitaire:hover { box-shadow: 0 15px 30px rgba(34, 139, 34, 0.5); }
+        .game-card.gem:hover { box-shadow: 0 15px 30px rgba(200, 0, 255, 0.5); }
 
         /* 入场动画序列 (13个) */
         .game-card {
@@ -142,18 +178,18 @@
             animation: fadeInUp 0.8s ease-out forwards;
         }
         .game-card:nth-child(1) { animation-delay: 0.1s; }
-        .game-card:nth-child(2) { animation-delay: 0.2s; }
-        .game-card:nth-child(3) { animation-delay: 0.3s; }
-        .game-card:nth-child(4) { animation-delay: 0.4s; }
-        .game-card:nth-child(5) { animation-delay: 0.5s; }
-        .game-card:nth-child(6) { animation-delay: 0.6s; }
-        .game-card:nth-child(7) { animation-delay: 0.7s; }
-        .game-card:nth-child(8) { animation-delay: 0.8s; }
-        .game-card:nth-child(9) { animation-delay: 0.9s; }
-        .game-card:nth-child(10) { animation-delay: 1.0s; }
-        .game-card:nth-child(11) { animation-delay: 1.1s; }
-        .game-card:nth-child(12) { animation-delay: 1.2s; }
-        .game-card:nth-child(13) { animation-delay: 1.3s; } /* 新增 */
+        .game-card:nth-child(2) { animation-delay: 0.1s; } /* 稍微加快一点 */
+        .game-card:nth-child(3) { animation-delay: 0.2s; }
+        .game-card:nth-child(4) { animation-delay: 0.2s; }
+        .game-card:nth-child(5) { animation-delay: 0.3s; }
+        .game-card:nth-child(6) { animation-delay: 0.3s; }
+        .game-card:nth-child(7) { animation-delay: 0.4s; }
+        .game-card:nth-child(8) { animation-delay: 0.4s; }
+        .game-card:nth-child(9) { animation-delay: 0.5s; }
+        .game-card:nth-child(10) { animation-delay: 0.5s; }
+        .game-card:nth-child(11) { animation-delay: 0.6s; }
+        .game-card:nth-child(12) { animation-delay: 0.6s; }
+        .game-card:nth-child(13) { animation-delay: 0.7s; }
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -171,17 +207,42 @@
             color: rgba(255,255,255,0.3);
             font-size: 0.9rem;
             margin-top: auto;
+            padding-top: 2rem;
         }
 
-        /* 手机端适配 */
+        /* ============================ */
+        /*   手机端核心优化：双列布局   */
+        /* ============================ */
         @media (max-width: 768px) {
-            h1 { font-size: 2.2rem; }
-            .card-container { gap: 20px; }
+            h1 { font-size: 2rem; }
+            p.subtitle { margin-bottom: 1rem; }
+            
+            .card-container { 
+                gap: 15px; /* 间距缩小 */
+                justify-content: space-between; /* 两端对齐，中间留空 */
+            }
+
             .game-card { 
-                width: 100%; 
-                max-width: 340px; 
-                height: auto; 
-                padding: 2rem;
+                /* 核心：计算宽度为50%减去一点间隙，实现双列 */
+                width: calc(50% - 8px); 
+                height: 160px; /* 高度大幅减小 */
+                padding: 1rem;
+                border-radius: 15px;
+            }
+
+            /* 手机端隐藏描述文字，只看图标和名字，节省空间 */
+            .game-desc {
+                display: none;
+            }
+
+            /* 调整手机端图标和文字大小 */
+            .icon {
+                font-size: 3rem;
+                margin-bottom: 0.8rem;
+            }
+            .game-title {
+                font-size: 1.1rem;
+                margin-bottom: 0;
             }
         }
     </style>
@@ -191,95 +252,97 @@
     <header>
         <h1>Arthur's Playground</h1>
         <p class="subtitle">经典耐玩的个人向游戏合集</p>
+        <!-- 新增搜索框 -->
+        <input type="text" id="searchInput" class="search-box" placeholder="🔍 搜索游戏 (例如: 骰子, 棋)">
     </header>
 
-    <div class="card-container">
-        <!-- 1. 绝境骰子 (原创) -->
-        <a href="./dicerogue/" class="game-card rogue">
+    <div class="card-container" id="gameContainer">
+        <!-- 1. 绝境骰子 -->
+        <a href="./dicerogue/" class="game-card rogue" data-name="绝境骰子 roguelike dice">
             <div class="icon">💀</div>
             <div class="game-title">绝境骰子 (原创)</div>
             <div class="game-desc">用骰子打怪闯关<br>Dice Rogue</div>
         </a>
 
         <!-- 2. 快艇骰子 -->
-        <a href="./yacht-dice/" class="game-card dice">
+        <a href="./yacht-dice/" class="game-card dice" data-name="快艇骰子 yacht dice">
             <div class="icon">🎲</div>
             <div class="game-title">快艇骰子</div>
             <div class="game-desc">策略与运气的博弈<br>Yacht Dice</div>
         </a>
 
         <!-- 3. 猜颜色 -->
-        <a href="./color-guess/" class="game-card color">
+        <a href="./color-guess/" class="game-card color" data-name="猜颜色 color guess">
             <div class="icon">🎨</div>
             <div class="game-title">猜颜色</div>
             <div class="game-desc">考验你的推理能力<br>Color Guess</div>
         </a>
 
         <!-- 4. 四子棋 -->
-        <a href="./connect-four/" class="game-card connect">
+        <a href="./connect-four/" class="game-card connect" data-name="四子棋 connect 4">
             <div class="icon">🔴</div>
             <div class="game-title">四子棋</div>
             <div class="game-desc">经典的连珠策略游戏<br>Connect 4</div>
         </a>
 
-        <!-- 5. 黑白棋 (图标：Radio Button) -->
-        <a href="./reversi/" class="game-card reversi">
+        <!-- 5. 黑白棋 -->
+        <a href="./reversi/" class="game-card reversi" data-name="黑白棋 reversi othello">
             <div class="icon">🔘</div>
             <div class="game-title">黑白棋</div>
             <div class="game-desc">翻转乾坤的智慧<br>Reversi</div>
         </a>
 
-        <!-- 6. 国际跳棋 (图标：Crown) -->
-        <a href="./checkers/" class="game-card checkers">
+        <!-- 6. 国际跳棋 -->
+        <a href="./checkers/" class="game-card checkers" data-name="国际跳棋 checkers">
             <div class="icon">👑</div>
             <div class="game-title">国际跳棋</div>
             <div class="game-desc">经典的跳吃策略<br>Checkers</div>
         </a>
 
         <!-- 7. 数独 -->
-        <a href="./sudoku/" class="game-card sudoku">
+        <a href="./sudoku/" class="game-card sudoku" data-name="数独 sudoku">
             <div class="icon">🔢</div>
             <div class="game-title">数独</div>
             <div class="game-desc">逻辑推理的数字迷宫<br>Sudoku</div>
         </a>
 
-        <!-- 8. 数独方块 (图标：Brick) -->
-        <a href="./sudokublock/" class="game-card block">
+        <!-- 8. 数独方块 -->
+        <a href="./sudokublock/" class="game-card block" data-name="数独方块 sudoku block woodoku">
             <div class="icon">🧱</div>
             <div class="game-title">数独方块</div>
             <div class="game-desc">消除与填充的乐趣<br>Sudoku Block</div>
         </a>
 
-        <!-- 9. 华容道 (图标：Wheel) -->
-        <a href="./klotski/" class="game-card klotski">
+        <!-- 9. 华容道 -->
+        <a href="./klotski/" class="game-card klotski" data-name="华容道 klotski">
             <div class="icon">🛞</div>
             <div class="game-title">华容道</div>
             <div class="game-desc">经典的滑块解谜<br>Klotski</div>
         </a>
 
-        <!-- 10. 双陆棋 (图标：Chess Pawn) -->
-        <a href="./backgammon/" class="game-card backgammon">
+        <!-- 10. 双陆棋 -->
+        <a href="./backgammon/" class="game-card backgammon" data-name="双陆棋 backgammon">
             <div class="icon">♟️</div>
             <div class="game-title">双陆棋</div>
             <div class="game-desc">古老而优雅的棋盘对决<br>Backgammon</div>
         </a>
 
         <!-- 11. 海战棋 -->
-        <a href="./battleship/" class="game-card battleship">
+        <a href="./battleship/" class="game-card battleship" data-name="海战棋 battleship">
             <div class="icon">⚓</div>
             <div class="game-title">海战棋</div>
             <div class="game-desc">隐秘海域的策略打击<br>Battleship</div>
         </a>
 
         <!-- 12. 纸牌接龙 -->
-        <a href="./solitaire/" class="game-card solitaire">
+        <a href="./solitaire/" class="game-card solitaire" data-name="纸牌接龙 solitaire">
             <div class="icon">♠️</div>
             <div class="game-title">纸牌接龙</div>
             <div class="game-desc">经典的单人扑克游戏<br>Solitaire</div>
         </a>
 
-        <!-- 13. 宝石消除 (新) -->
-        <a href="./gemmatch/" class="game-card gem">
+        <!-- 13. 宝石消除 -->
+        <a href="./gemmatch/" class="game-card gem" data-name="宝石消除 gem match 3">
             <div class="icon">💎</div>
             <div class="game-title">宝石消除</div>
             <div class="game-desc">经典的宝石三消乐趣<br>Gem Match</div>
@@ -289,6 +352,29 @@
     <footer>
         © 2025 by ArthurZhu
     </footer>
+
+    <!-- 简单的搜索功能脚本 -->
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const cards = document.querySelectorAll('.game-card');
+
+        searchInput.addEventListener('input', (e) => {
+            const value = e.target.value.toLowerCase();
+
+            cards.forEach(card => {
+                // 读取 data-name 属性和卡片内的文本内容
+                const name = card.getAttribute('data-name').toLowerCase();
+                const text = card.innerText.toLowerCase();
+                
+                // 只要 data-name 或者 显示文本里包含搜索词，就显示
+                if (name.includes(value) || text.includes(value)) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+        });
+    </script>
 
 </body>
 </html>
