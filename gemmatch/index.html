@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>宝石消除（by Arthur）</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gem-size: 50px; 
+            --gap: 2px;
+            --gold: #d4af37;
+            --gold-gradient: linear-gradient(135deg, #d4af37 0%, #f9f295 50%, #aa8420 100%);
+            --panel-bg: rgba(10, 10, 10, 0.9);
+            --border-radius: 12px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            /* 优化：背景质感升级 */
+            background-color: #080808;
+            background-image: 
+                /* 中心向外的深邃光影 */
+                radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000000 100%),
+                /* 微弱的金色纹理，增加细节 */
+                linear-gradient(rgba(212, 175, 55, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(212, 175, 55, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 20px 20px, 20px 20px;
+            color: #fff;
+            font-family: 'Cinzel', serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; 
+        }
+
+        #game-wrapper {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            padding: 20px;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        #sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 320px; /* 稍微加宽一点点以容纳标题 */
+            flex-shrink: 0;
+            z-index: 20;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 2px solid var(--gold);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: 
+                0 0 20px rgba(0, 0, 0, 0.8),
+                inset 0 0 30px rgba(0, 0, 0, 0.9),
+                0 0 10px rgba(212, 175, 55, 0.2);
+            text-align: center;
+            position: relative;
+        }
+        
+        .panel::after {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px; /* 稍微调小一点，确保PC一行显示 */
+            margin: 0;
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0px 2px 5px rgba(0,0,0,0.5);
+            line-height: 1.2;
+            white-space: nowrap; /* 优化：强制不换行 */
+        }
+
+        .author {
+            display: block;
+            font-size: 10px;
+            color: #666;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background: rgba(0,0,0,0.6);
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 6px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        #progress-container {
+            width: 100%;
+            height: 8px;
+            background: #222;
+            margin-top: 15px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #444;
+            box-shadow: inset 0 1px 3px #000;
+        }
+        
+        #time-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #aa8420, #f9f295, #d4af37);
+            box-shadow: 0 0 8px var(--gold);
+            transition: width 0.5s ease-out; 
+        }
+
+        #time-bar.danger {
+            background: linear-gradient(90deg, #990000, #ff3333);
+            box-shadow: 0 0 10px red;
+        }
+
+        #btn-start {
+            background: var(--gold-gradient);
+            border: none;
+            color: #1a0f00;
+            padding: 15px 0;
+            width: 100%;
+            font-family: 'Cinzel', serif;
+            font-weight: 700;
+            font-size: 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+            position: relative;
+            z-index: 30;
+        }
+        #btn-start:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.5);
+        }
+        #btn-start:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        #grid-frame {
+            padding: 12px;
+            background: linear-gradient(145deg, #1a1a1a, #000);
+            border: 3px solid #5c4d1f;
+            border-radius: 16px;
+            box-shadow: 
+                0 20px 60px rgba(0,0,0,0.9),
+                inset 0 0 40px rgba(0,0,0,1);
+            position: relative;
+            flex-shrink: 0; 
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #grid-frame::before {
+            content: '';
+            position: absolute;
+            top: -5px; left: -5px; right: -5px; bottom: -5px;
+            border: 1px solid var(--gold);
+            border-radius: 20px;
+            pointer-events: none;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.1);
+        }
+
+        #grid-container {
+            position: relative;
+            background: rgba(255, 255, 255, 0.02);
+            margin: 0 auto;
+        }
+
+        /* ------------------ 宝石样式 ------------------ */
+        .gem {
+            width: var(--gem-size);
+            height: var(--gem-size);
+            position: absolute;
+            cursor: pointer;
+            z-index: 5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: calc(var(--gem-size) * 0.75);
+            line-height: 1;
+            filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.6));
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            border-radius: 15%; 
+        }
+
+        /* 选中态 */
+        .gem.selected {
+            z-index: 100;
+            animation: pulse-gold 1.5s infinite;
+        }
+        .gem.selected::before {
+            content: '';
+            position: absolute;
+            top: -4px; left: -4px; right: -4px; bottom: -4px;
+            border: 2px solid var(--gold);
+            border-radius: 25%;
+            box-shadow: 0 0 10px var(--gold), inset 0 0 5px var(--gold);
+        }
+
+        @keyframes pulse-gold {
+            0% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.1); filter: brightness(1.3); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+
+        /* 
+           新增强调区域样式 (Simple Highlight) 
+           触发道具时，背景变亮，显示出消除范围
+        */
+        .gem.active-highlight {
+            background-color: rgba(255, 255, 255, 0.35); /* 盘面背景高亮 */
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+            z-index: 1; /* 保证高亮在底层，但能被看到 */
+            transition: background-color 0.2s;
+        }
+
+        /* 消除动画 */
+        .gem.match-anim {
+            transform: scale(1.3) rotate(15deg); 
+            opacity: 0;
+            transition: transform 0.6s ease-out, opacity 0.5s ease-out;
+        }
+
+        /* ------------------ 道具图标 ------------------ */
+        .gem.bomb::after {
+            content: '💣';
+            position: absolute;
+            font-size: calc(var(--gem-size) * 0.45);
+            bottom: -2px; right: -2px;
+            filter: drop-shadow(0 0 3px #000);
+            z-index: 2;
+            animation: pulse 1s infinite;
+        }
+        .gem.diamond::after {
+            content: '💎';
+            position: absolute;
+            font-size: calc(var(--gem-size) * 0.45);
+            top: -2px; right: -2px;
+            filter: drop-shadow(0 0 5px cyan);
+            z-index: 2;
+            animation: spin 3s infinite linear;
+        }
+        .gem.star::after {
+            content: '⭐️';
+            position: absolute;
+            font-size: calc(var(--gem-size) * 0.45);
+            top: -2px; left: -2px;
+            filter: drop-shadow(0 0 5px gold);
+            z-index: 2;
+            animation: pulse 0.5s infinite;
+        }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+        .overlay.active { opacity: 1; pointer-events: all; }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #111, #222);
+            padding: 40px;
+            border: 2px solid var(--gold);
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(212, 175, 55, 0.2);
+            width: 80%;
+            max-width: 350px;
+        }
+
+        .floating-text {
+            position: absolute;
+            color: #fff;
+            font-weight: bold;
+            font-size: 24px;
+            pointer-events: none;
+            z-index: 100;
+            text-shadow: 0 0 5px var(--gold);
+            animation: floatUp 1s ease-out forwards;
+            white-space: nowrap;
+        }
+        @keyframes floatUp { 
+            0% { transform: translateY(0); opacity: 1; } 
+            100% { transform: translateY(-80px); opacity: 0; } 
+        }
+
+        @media (max-width: 768px) {
+            #game-wrapper {
+                flex-direction: column;
+                gap: 15px;
+                padding: 10px;
+                justify-content: center;
+            }
+            #sidebar {
+                width: 100%;
+                max-width: 500px; 
+            }
+            .panel {
+                padding: 15px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            h1 { font-size: 24px; }
+            .author { display: none; }
+            .stats-row { margin-bottom: 5px; }
+            .stat-value { font-size: 20px; }
+            .stat-label { font-size: 9px; }
+            #btn-start {
+                padding: 10px 0;
+                font-size: 16px;
+            }
+            #grid-frame {
+                padding: 8px;
+                border-width: 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="sidebar">
+            <div class="panel">
+                <h1>宝石消除（by Arthur）</h1>
+                <span class="author">Ultimate Edition</span>
+
+                <div class="stats-row">
+                    <div class="stat-box">
+                        <div class="stat-label">分数 Score</div>
+                        <div id="score" class="stat-value">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">时间 Time</div>
+                        <div id="time" class="stat-value">02:00</div>
+                    </div>
+                </div>
+
+                <div id="progress-container">
+                    <div id="time-bar"></div>
+                </div>
+
+                <button id="btn-start" onclick="startGameLogic()">开始游戏</button>
+            </div>
+        </div>
+
+        <div id="grid-frame">
+            <div id="grid-container">
+                <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#666; font-size:12px; letter-spacing:2px;">PRESS START</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="end-overlay" class="overlay">
+        <div class="modal-content">
+            <h2 style="color:var(--gold); margin:0 0 20px 0; font-family:'Playfair Display'">时间结束</h2>
+            <div style="color:#888; font-size:12px; letter-spacing:2px; margin-bottom:5px;">FINAL SCORE</div>
+            <div id="final-score" style="font-size:48px; color:#fff; font-weight:bold; margin-bottom:30px; text-shadow:0 0 20px rgba(212,175,55,0.5)">0</div>
+            <button id="btn-restart" class="panel" style="width:100%; cursor:pointer; font-weight:bold; color:var(--gold); text-transform:uppercase;" onclick="startGameLogic()">再次挑战</button>
+        </div>
+    </div>
+
+    <script>
+        const ROWS = 8;
+        const COLS = 8;
+        const INITIAL_TIME = 120; 
+        const TIME_BONUS_PER_GEM = 0.3; 
+        const GEMS_EMOJI = ['🔴', '🟡', '🟩', '🟪', '🔶', '🔷'];
+        const GEM_TYPES = GEMS_EMOJI.length;
+        const GAP = 2;
+
+        let grid = [];
+        let score = 0;
+        let timeRemaining = INITIAL_TIME;
+        let timerInterval = null;
+        let selectedGem = null;
+        let isProcessing = false;
+        let isGameActive = false;
+        
+        // 拖拽相关
+        let mouseStartX = 0;
+        let mouseStartY = 0;
+
+        const gridContainer = document.getElementById('grid-container');
+        const scoreEl = document.getElementById('score');
+        const timeEl = document.getElementById('time');
+        const timeBar = document.getElementById('time-bar');
+        const endOverlay = document.getElementById('end-overlay');
+        const finalScoreEl = document.getElementById('final-score');
+        const startBtn = document.getElementById('btn-start');
+
+        function init() {
+            adjustBoardSize();
+            window.addEventListener('resize', adjustBoardSize);
+            timeBar.style.width = '100%'; 
+        }
+
+        function adjustBoardSize() {
+            const maxWidth = window.innerWidth - 30; 
+            const maxHeight = window.innerHeight - 240;
+            let boardSizePx = Math.min(maxWidth, maxHeight);
+            if (boardSizePx > 600) boardSizePx = 600;
+
+            const totalGap = (COLS - 1) * GAP;
+            const gemSize = Math.floor((boardSizePx - totalGap) / COLS);
+
+            document.documentElement.style.setProperty('--gem-size', `${gemSize}px`);
+
+            const exactWidth = (gemSize * COLS) + ((COLS - 1) * GAP);
+            const exactHeight = (gemSize * ROWS) + ((ROWS - 1) * GAP);
+            
+            gridContainer.style.width = `${exactWidth}px`;
+            gridContainer.style.height = `${exactHeight}px`;
+
+            if (grid.length > 0) {
+                grid.forEach(row => {
+                    row.forEach(gem => {
+                        if (gem && gem.el) setPosition(gem.el, gem.y, gem.x);
+                    });
+                });
+            }
+        }
+
+        function startGameLogic() {
+            endOverlay.classList.remove('active');
+            startBtn.disabled = true;
+            startBtn.innerText = "游戏进行中...";
+            
+            grid = [];
+            score = 0;
+            timeRemaining = INITIAL_TIME;
+            isProcessing = false;
+            selectedGem = null;
+            isGameActive = true;
+            
+            scoreEl.innerText = score;
+            updateTimerDisplay(); 
+            
+            gridContainer.innerHTML = '';
+            createBoard();
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(gameLoop, 100); 
+        }
+
+        function gameLoop() {
+            if (!isGameActive) return;
+            timeRemaining -= 0.1; 
+            
+            let displayTime = Math.ceil(timeRemaining);
+            if (displayTime < 0) displayTime = 0;
+            let m = Math.floor(displayTime / 60);
+            let s = displayTime % 60;
+            timeEl.innerText = `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+
+            updateTimerBar();
+            
+            if (timeRemaining <= 0) {
+                gameOver();
+            }
+        }
+
+        function updateTimerDisplay() {
+             let displayTime = Math.ceil(timeRemaining);
+             let m = Math.floor(displayTime / 60);
+             let s = displayTime % 60;
+             timeEl.innerText = `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+             timeBar.style.width = '100%';
+        }
+
+        function updateTimerBar() {
+            const percent = (timeRemaining / INITIAL_TIME) * 100;
+            timeBar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+            
+            if (timeRemaining < 10) timeBar.classList.add('danger');
+            else timeBar.classList.remove('danger');
+        }
+
+        function gameOver() {
+            isGameActive = false;
+            clearInterval(timerInterval);
+            timeRemaining = 0;
+            updateTimerBar(); 
+            timeEl.innerText = "00:00";
+            finalScoreEl.innerText = score;
+            endOverlay.classList.add('active');
+            startBtn.disabled = false;
+            startBtn.innerText = "开始游戏";
+        }
+
+        function createBoard() {
+            adjustBoardSize();
+            for (let r = 0; r < ROWS; r++) {
+                grid[r] = [];
+                for (let c = 0; c < COLS; c++) {
+                    let type;
+                    do {
+                        type = Math.floor(Math.random() * GEM_TYPES);
+                    } while (
+                        (c >= 2 && grid[r][c-1].type === type && grid[r][c-2].type === type) ||
+                        (r >= 2 && grid[r-1][c].type === type && grid[r-2][c].type === type)
+                    );
+                    createGem(r, c, type);
+                }
+            }
+        }
+
+        function createGem(r, c, type) {
+            const gemEl = document.createElement('div');
+            gemEl.classList.add('gem');
+            gemEl.innerText = GEMS_EMOJI[type];
+            gemEl.dataset.r = r;
+            gemEl.dataset.c = c;
+            
+            setPosition(gemEl, r, c);
+            
+            // 优化：PC端鼠标支持 (mousedown + mouseup)
+            gemEl.addEventListener('mousedown', handleMouseDown);
+            gemEl.addEventListener('mouseup', handleMouseUp);
+            
+            // 移动端支持
+            gemEl.addEventListener('touchstart', handleTouchStart, {passive: false});
+            gemEl.addEventListener('touchend', handleTouchEnd, {passive: false});
+
+            gridContainer.appendChild(gemEl);
+            grid[r][c] = { type: type, x: c, y: r, el: gemEl, special: null };
+            return grid[r][c];
+        }
+
+        function setPosition(el, r, c) {
+            const style = getComputedStyle(document.documentElement);
+            const size = parseInt(style.getPropertyValue('--gem-size')); 
+            el.style.top = `${r * (size + GAP)}px`;
+            el.style.left = `${c * (size + GAP)}px`;
+        }
+
+        // --- 鼠标交互 (PC端拖拽) ---
+        function handleMouseDown(e) {
+            if (isProcessing || !isGameActive) return;
+            // 记录起点，同时执行点击选中逻辑
+            mouseStartX = e.screenX;
+            mouseStartY = e.screenY;
+            
+            const r = parseInt(this.dataset.r);
+            const c = parseInt(this.dataset.c);
+            handleInteractionStart(grid[r][c]);
+        }
+
+        function handleMouseUp(e) {
+            if (isProcessing || !isGameActive || !selectedGem) return;
+            // 记录终点，计算拖拽
+            let diffX = e.screenX - mouseStartX;
+            let diffY = e.screenY - mouseStartY;
+            handleDrag(diffX, diffY);
+        }
+
+        // --- 触摸交互 (移动端) ---
+        function handleTouchStart(e) {
+            if (isProcessing || !isGameActive) return;
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            
+            const r = parseInt(this.dataset.r);
+            const c = parseInt(this.dataset.c);
+            handleInteractionStart(grid[r][c]);
+        }
+
+        function handleTouchEnd(e) {
+            if (isProcessing || !isGameActive || !selectedGem) return;
+            e.preventDefault();
+            let diffX = e.changedTouches[0].screenX - touchStartX;
+            let diffY = e.changedTouches[0].screenY - touchStartY;
+            handleDrag(diffX, diffY);
+        }
+
+        // --- 统一的交互逻辑 ---
+        function handleInteractionStart(clickedGem) {
+            if (!selectedGem) {
+                selectGem(clickedGem);
+            } else {
+                const dist = Math.abs(selectedGem.x - clickedGem.x) + Math.abs(selectedGem.y - clickedGem.y);
+                if (dist === 1) {
+                    swapGems(selectedGem, clickedGem);
+                } else {
+                    selectGem(clickedGem);
+                }
+            }
+        }
+
+        function handleDrag(diffX, diffY) {
+            if (Math.abs(diffX) > 30 || Math.abs(diffY) > 30) {
+                let targetR = selectedGem.y;
+                let targetC = selectedGem.x;
+
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    if (diffX > 0) targetC++; else targetC--;
+                } else {
+                    if (diffY > 0) targetR++; else targetR--;
+                }
+
+                if (targetR >= 0 && targetR < ROWS && targetC >= 0 && targetC < COLS) {
+                    swapGems(selectedGem, grid[targetR][targetC]);
+                } else {
+                    selectedGem.el.classList.remove('selected');
+                    selectedGem = null;
+                }
+            }
+        }
+
+        function handleGemClick(e) {
+            // 已由 mousedown/touchstart 接管，此处保留为空或移除
+            e.preventDefault();
+        }
+
+        function selectGem(gem) {
+            if (selectedGem) selectedGem.el.classList.remove('selected');
+            selectedGem = gem;
+            selectedGem.el.classList.add('selected');
+            // 无预览效果
+        }
+
+        // --- 核心交换逻辑 (双重RAF防瞬移) ---
+        async function swapGems(gem1, gem2) {
+            isProcessing = true;
+            if (selectedGem) {
+                selectedGem.el.classList.remove('selected');
+                selectedGem = null;
+            }
+
+            // 检查钻石
+            let diamondMode = false;
+            let diamondGem = null;
+            let targetGem = null;
+
+            if (gem1.special === 'diamond') { diamondMode = true; diamondGem = gem1; targetGem = gem2; }
+            else if (gem2.special === 'diamond') { diamondMode = true; diamondGem = gem2; targetGem = gem1; }
+
+            const el1 = gem1.el; const el2 = gem2.el;
+            const r1 = gem1.y, c1 = gem1.x;
+            const r2 = gem2.y, c2 = gem2.x;
+
+            // 1. 初始化位置并强制重绘
+            el1.style.transition = 'none'; el2.style.transition = 'none';
+            setPosition(el1, r1, c1); setPosition(el2, r2, c2);
+            el1.offsetHeight; el2.offsetHeight; 
+
+            // 2. 双重 RAF 确保动画帧
+            await new Promise(resolve => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        el1.style.transition = 'top 0.3s ease-out, left 0.3s ease-out';
+                        el2.style.transition = 'top 0.3s ease-out, left 0.3s ease-out';
+                        setPosition(el1, r2, c2);
+                        setPosition(el2, r1, c1);
+                        setTimeout(resolve, 300); 
+                    });
+                });
+            });
+
+            // 3. 判定逻辑
+            if (diamondMode) {
+                let exploded = new Set();
+                exploded.add(diamondGem);
+                triggerChainReaction(targetGem, exploded, true);
+                
+                await executeExplosion(Array.from(exploded));
+            } else {
+                // 普通交换
+                let tempType = gem1.type; gem1.type = gem2.type; gem2.type = tempType;
+                let tempSpec = gem1.special; gem1.special = gem2.special; gem2.special = tempSpec;
+
+                const matchSets = findMatchSets();
+                
+                if (matchSets.length > 0) {
+                    // 有效交换
+                    el1.style.transition = 'none'; el2.style.transition = 'none';
+                    setPosition(el1, r1, c1); setPosition(el2, r2, c2);
+                    updateGemVisuals(gem1); updateGemVisuals(gem2);
+                    el1.offsetHeight;
+                    el1.style.transition = ''; el2.style.transition = '';
+
+                    await processMatches(matchSets);
+                } else {
+                    // 无效交换：回弹
+                    let tType = gem1.type; gem1.type = gem2.type; gem2.type = tType;
+                    let tSpec = gem1.special; gem1.special = gem2.special; gem2.special = tSpec;
+
+                    setPosition(el1, r1, c1);
+                    setPosition(el2, r2, c2);
+                    
+                    await new Promise(r => setTimeout(r, 300));
+                    
+                    el1.style.transition = ''; el2.style.transition = '';
+                    isProcessing = false;
+                }
+            }
+        }
+
+        function triggerChainReaction(startGem, explodedSet, colorClearMode = false) {
+            if (colorClearMode) {
+                const targetType = startGem.type;
+                showFloatText(3, 3, "COLOR CLEAR!");
+                for(let r=0; r<ROWS; r++){
+                    for(let c=0; c<COLS; c++){
+                        let currentGem = grid[r][c];
+                        if(currentGem.type === targetType && !explodedSet.has(currentGem)) {
+                            explodedSet.add(currentGem);
+                            if (currentGem.special) {
+                                triggerChainReaction(currentGem, explodedSet, false);
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (explodedSet.has(startGem) && !startGem.special) return;
+            
+            if (startGem.special === 'bomb') {
+                if (!explodedSet.has(startGem)) explodedSet.add(startGem);
+                showFloatText(startGem.x, startGem.y, "BOOM!");
+                let r = startGem.y;
+                let c = startGem.x;
+                for(let i=r-1; i<=r+1; i++) {
+                    for(let j=c-1; j<=c+1; j++) {
+                        if(i>=0 && i<ROWS && j>=0 && j<COLS) {
+                            let neighbor = grid[i][j];
+                            if (!explodedSet.has(neighbor)) {
+                                explodedSet.add(neighbor);
+                                if (neighbor.special) triggerChainReaction(neighbor, explodedSet, false);
+                            }
+                        }
+                    }
+                }
+            } 
+            else if (startGem.special === 'star') {
+                if (!explodedSet.has(startGem)) explodedSet.add(startGem);
+                showFloatText(startGem.x, startGem.y, "CRASH!");
+                let r = startGem.y;
+                let c = startGem.x;
+                for(let j=0; j<COLS; j++) {
+                    let neighbor = grid[r][j];
+                    if (!explodedSet.has(neighbor)) {
+                        explodedSet.add(neighbor);
+                        if (neighbor.special) triggerChainReaction(neighbor, explodedSet, false);
+                    }
+                }
+                for(let i=0; i<ROWS; i++) {
+                    let neighbor = grid[i][c];
+                    if (!explodedSet.has(neighbor)) {
+                        explodedSet.add(neighbor);
+                        if (neighbor.special) triggerChainReaction(neighbor, explodedSet, false);
+                    }
+                }
+            }
+        }
+
+        function updateGemVisuals(gemData) {
+            const el = gemData.el;
+            el.innerText = GEMS_EMOJI[gemData.type];
+            el.className = 'gem';
+            if (gemData.special === 'bomb') el.classList.add('bomb');
+            if (gemData.special === 'diamond') el.classList.add('diamond');
+            if (gemData.special === 'star') el.classList.add('star');
+        }
+
+        function findMatchSets() {
+            let sets = [];
+            for (let r = 0; r < ROWS; r++) {
+                let matchLen = 1;
+                for (let c = 0; c < COLS; c++) {
+                    let isLast = (c === COLS - 1);
+                    if (!isLast && grid[r][c].type === grid[r][c+1].type) {
+                        matchLen++;
+                    } else {
+                        if (matchLen >= 3) {
+                            let group = [];
+                            for(let k=0; k<matchLen; k++) group.push(grid[r][c-k]);
+                            sets.push({ gems: group, type: 'h' });
+                        }
+                        matchLen = 1;
+                    }
+                }
+            }
+            for (let c = 0; c < COLS; c++) {
+                let matchLen = 1;
+                for (let r = 0; r < ROWS; r++) {
+                    let isLast = (r === ROWS - 1);
+                    if (!isLast && grid[r][c].type === grid[r+1][c].type) {
+                        matchLen++;
+                    } else {
+                        if (matchLen >= 3) {
+                            let group = [];
+                            for(let k=0; k<matchLen; k++) group.push(grid[r-k][c]);
+                            sets.push({ gems: group, type: 'v' });
+                        }
+                        matchLen = 1;
+                    }
+                }
+            }
+            return sets;
+        }
+
+        async function processMatches(matchSets) {
+            let gemsToRemove = new Set();
+            let newPowerUps = [];
+
+            let gemCounts = new Map();
+            matchSets.forEach(set => {
+                set.gems.forEach(g => {
+                    gemsToRemove.add(g);
+                    if(!gemCounts.has(g)) gemCounts.set(g, {h:false, v:false});
+                    if(set.type === 'h') gemCounts.get(g).h = true;
+                    if(set.type === 'v') gemCounts.get(g).v = true;
+                });
+            });
+
+            let processedGems = new Set();
+            gemCounts.forEach((val, gem) => {
+                if(val.h && val.v && !processedGems.has(gem)) {
+                    newPowerUps.push({gem: gem, type: 'star'}); 
+                    processedGems.add(gem); 
+                }
+            });
+
+            matchSets.forEach(set => {
+                let hasStar = set.gems.some(g => processedGems.has(g));
+                if (!hasStar) {
+                    if (set.gems.length >= 5) {
+                        let centerGem = set.gems[Math.floor(set.gems.length/2)];
+                        if(!processedGems.has(centerGem)) {
+                            newPowerUps.push({gem: centerGem, type: 'diamond'});
+                            processedGems.add(centerGem);
+                        }
+                    } else if (set.gems.length === 4) {
+                        let centerGem = set.gems[1];
+                        if(!processedGems.has(centerGem)) {
+                            newPowerUps.push({gem: centerGem, type: 'bomb'});
+                            processedGems.add(centerGem);
+                        }
+                    }
+                }
+            });
+
+            let initialExplosionList = Array.from(gemsToRemove);
+            initialExplosionList.forEach(g => {
+                if (g.special) {
+                    triggerChainReaction(g, gemsToRemove, false);
+                }
+            });
+
+            newPowerUps.forEach(p => {
+                if (gemsToRemove.has(p.gem)) {
+                    gemsToRemove.delete(p.gem);
+                }
+                p.gem.special = p.type;
+                p.gem.type = Math.floor(Math.random() * GEM_TYPES); 
+            });
+
+            await executeExplosion(Array.from(gemsToRemove), newPowerUps);
+        }
+
+        async function executeExplosion(gems, powerUpsToAnim = []) {
+            if (gems.length === 0 && powerUpsToAnim.length === 0) {
+                isProcessing = false;
+                return;
+            }
+
+            let baseScore = gems.length * 50;
+            if (gems.length > 5) baseScore *= 1.5;
+            if (gems.length > 10) baseScore *= 2;
+            score += Math.floor(baseScore);
+            scoreEl.innerText = score;
+            
+            let timeBonus = gems.length * TIME_BONUS_PER_GEM;
+            if (timeBonus > 0) {
+                timeRemaining += timeBonus;
+                showFloatText(2, 0, `+${timeBonus.toFixed(1)}s`);
+            }
+            let displayTime = Math.ceil(timeRemaining);
+            let m = Math.floor(displayTime / 60);
+            let s = displayTime % 60;
+            timeEl.innerText = `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+            updateTimerBar();
+
+            powerUpsToAnim.forEach(p => {
+                updateGemVisuals(p.gem);
+                p.gem.el.style.transform = "scale(1.5)";
+                setTimeout(() => p.gem.el.style.transform = "scale(1)", 400);
+            });
+
+            // 1. 先应用盘面背景高亮，直观展示影响区域
+            gems.forEach(g => g.el.classList.add('active-highlight'));
+            
+            // 2. 停留 200ms 让玩家看清范围
+            await new Promise(r => setTimeout(r, 200));
+
+            // 3. 开始破碎动画
+            gems.forEach(g => g.el.classList.add('match-anim'));
+            await new Promise(r => setTimeout(r, 600));
+
+            for (let c = 0; c < COLS; c++) {
+                let shift = 0;
+                for (let r = ROWS - 1; r >= 0; r--) {
+                    if (gems.includes(grid[r][c])) {
+                        shift++;
+                    } else if (shift > 0) {
+                        let targetR = r + shift;
+                        grid[targetR][c].type = grid[r][c].type;
+                        grid[targetR][c].special = grid[r][c].special;
+                        updateGemVisuals(grid[targetR][c]);
+                    }
+                }
+                
+                for (let r = 0; r < shift; r++) {
+                    grid[r][c].type = Math.floor(Math.random() * GEM_TYPES);
+                    grid[r][c].special = null;
+                    updateGemVisuals(grid[r][c]);
+                    
+                    grid[r][c].el.style.transition = 'none';
+                    const style = getComputedStyle(document.documentElement);
+                    const size = parseInt(style.getPropertyValue('--gem-size')) + GAP;
+                    
+                    grid[r][c].el.style.transform = `translateY(-${shift * size}px)`;
+                    grid[r][c].el.offsetHeight; 
+                    
+                    grid[r][c].el.style.transition = 'transform 0.4s ease-out';
+                    grid[r][c].el.style.transform = 'none';
+                }
+            }
+            
+            // 清理所有样式
+            for(let r=0; r<ROWS; r++) {
+                for(let c=0; c<COLS; c++) {
+                    grid[r][c].el.classList.remove('match-anim');
+                    grid[r][c].el.classList.remove('active-highlight');
+                }
+            }
+            
+            await new Promise(r => setTimeout(r, 400));
+            
+            const newMatches = findMatchSets();
+            if (newMatches.length > 0) {
+                await processMatches(newMatches);
+            } else {
+                isProcessing = false;
+            }
+        }
+
+        function showFloatText(c, r, text) {
+            const style = getComputedStyle(document.documentElement);
+            const size = parseInt(style.getPropertyValue('--gem-size'));
+            const div = document.createElement('div');
+            div.className = 'floating-text';
+            div.innerText = text;
+            div.style.left = (c * size + 10) + 'px';
+            div.style.top = (r * size) + 'px';
+            gridContainer.appendChild(div);
+            setTimeout(() => div.remove(), 1000);
+        }
+
+        init();
+    </script>
+</body>
+</html>
